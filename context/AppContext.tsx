@@ -1,0 +1,581 @@
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { Job, User, Notification, Candidate, Note, Client } from '../types';
+import { supabase } from '../supabase';
+
+interface AppContextType {
+    jobs: Job[];
+    users: User[];
+    candidates: Candidate[];
+    clients: Client[];
+    notifications: Notification[];
+    currentUser: User;
+    theme: 'light' | 'dark';
+    toggleTheme: () => void;
+    addJob: (job: Omit<Job, 'id'>) => void;
+    updateJobStage: (jobId: string, newStage: Job['stage']) => void;
+    addCandidate: (candidate: Omit<Candidate, 'id' | 'initials' | 'avatarColor' | 'textColor' | 'badgeColor' | 'badgeText' | 'notes'> & { notes?: Note[] }) => void;
+    updateCandidateStage: (candidateId: string, newStage: Candidate['stage']) => void;
+    updateCandidate: (candidateId: string, updates: Partial<Candidate>) => void;
+    // User Management
+    addUser: (user: Omit<User, 'id'>) => void;
+    updateUser: (userId: string, updates: Partial<User>) => void;
+    deleteUser: (userId: string) => void;
+    // Client Management
+    addClient: (client: Omit<Client, 'id'>) => void;
+    updateClient: (clientId: string, updates: Partial<Client>) => void;
+    // Notification
+    markNotificationAsRead: (id: string) => void;
+    clearNotifications: () => void;
+}
+
+const AppContext = createContext<AppContextType | undefined>(undefined);
+
+// Initial Mock Data
+const INITIAL_USERS: User[] = [
+    {
+        id: 'u1',
+        name: 'Ana Silva',
+        email: 'ana.silva@agency.com',
+        role: 'Senior Recruiter',
+        status: 'Ativo',
+        avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAUjudNv8TgTSOhkzl9_1YNQLV2EuKatNDE1MCYTbSxrEMjyb5XNKoukExLUIWuy7mkJ9nFbN8IJcpL9ZhrvBgzaMxE_e3qaRSuLzv_0wMuIRqS01uZWkqF3iZzowsZwd9XTTypZ0lPPJPFPrDqZextg-541zgx0S-oqMRwDD90EtHIEdiiGbAolW8lvtbOcxeLuMMulgJt9G-PsUR2LJIJJw44xLJFmljWY0FfLiwWVf4wH8OycgTwWXEtLS3RBJEN_ykFM65YwqY',
+        bio: 'Especialista em recrutamento Tech com 5 anos de experiência.',
+        preferences: { notifications: true, newsletter: false }
+    },
+    { id: 'u2', name: 'Lucas Santos', email: 'lucas.s@agency.com', role: 'Senior Recruiter', status: 'Ativo', avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCdvMItBqd86zWcHTVJequBeEdXDC5VZKkwhiqjsNSMJN-noPmhl87597Uac_ER4-y1XdC5KQn2wpo3bEVaKM0WIEYE9OZpUsYGQq4uqlZ2YJ6A-vLuj0XTtwVFfFyo7MlWrMi5ZqU5cX4KNJtRKG2fPOZeTxN-noPmhl87597Uac_ER4-y1XdC5KQn2wpo3bEVaKM0WIEYE9OZpUsYGQq4uqlZ2YJ6A-vLuj0XTtwVFfFyo7MlWrMi5ZqU5cX4KNJtRKG2fPOZeTxN-n_3PXKuaNGY1SOLey7XEAauOfWJNIgqo9zI9AAR9Tf_lThpFh2bSE2eEQKKRRWIFR8YAbkGC2fQ4RSBbfDbDLwLXFf5JFxQVZAe0ww4HxJgPO18' },
+    { id: 'u3', name: 'Maria Costa', email: 'maria.c@agency.com', role: 'Admin', status: 'Ativo', avatar: 'MC' },
+    { id: 'u4', name: 'Ricardo Alves', email: 'ricardo.a@agency.com', role: 'Junior Recruiter', status: 'Ativo', avatar: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBU1Z_ryp9S4BGUiwF2osKUHwrQqwaqfq0dEgskRQi1p4CHUvBecIiu9X5qR4EtbSl2TSDEyKM9VsGlRyzQ80NoNfUogNy8Y82M8-AeoDIXx7qlbvE1NFlpi37-qY0lnSSrXr_2_V0C6MnAnMTOXlp1KfHngB6XFpJiEVtp5m9r8GGrdkLKlUSlR2i3dXA3Fhm3uzmgG_xt1IxYt6S4IU6Pp8qhQxxxYQJTz_Ya1mjVLqS9p1Fo5Tcfsd-nI0DZMK_r43CPtj5DVrM' }
+];
+
+const INITIAL_JOBS: Job[] = [
+    {
+        id: '1',
+        title: 'Desenvolvedor Fullstack Senior',
+        company: 'Nubank Brasil',
+        stage: 'Vagas Abertas',
+        tag: { label: 'TECH', color: 'bg-blue-50 dark:bg-blue-900/30 text-primary' },
+        progress: 25,
+        daysRemaining: 4,
+        recruiter: { id: 'u1', name: 'Ana Silva', avatar: INITIAL_USERS[0].avatar },
+        candidatesCount: 2,
+        statusIcon: 'schedule',
+        requirements: ['React', 'Node.js', 'AWS', 'TypeScript']
+    },
+    {
+        id: '2',
+        title: 'Product Manager (Growth)',
+        company: 'Hotmart',
+        stage: 'Vagas Abertas',
+        tag: { label: 'PRODUTO', color: 'bg-purple-50 dark:bg-purple-900/30 text-purple-600' },
+        progress: 15,
+        daysRemaining: 12,
+        recruiter: { id: 'u2', name: 'Lucas Santos', avatar: INITIAL_USERS[1].avatar },
+        requirements: ['Product Strategy', 'Analytics', 'A/B Testing']
+    },
+    {
+        id: '3',
+        title: 'Executivo de Contas Mid-Market',
+        company: 'Salesforce',
+        stage: 'Em Triagem',
+        tag: { label: 'SALES', color: 'bg-green-50 dark:bg-green-900/30 text-green-600' },
+        progress: 40,
+        priority: 'Alta Prioridade',
+        recruiter: { id: 'u3', name: 'Maria Costa', avatar: 'MC' },
+        requirements: ['B2B Sales', 'CRM', 'Negotiation']
+    }
+];
+
+const INITIAL_CLIENTS: Client[] = [
+    {
+        id: '1',
+        name: 'Nubank Brasil',
+        industry: 'Fintech',
+        contactName: 'Fernanda Lima',
+        contactEmail: 'fernanda.lima@nubank.com.br',
+        phone: '(11) 99999-9999',
+        status: 'Ativo',
+        contractValue: 'R$ 25.000/mês',
+        logo: 'N'
+    },
+    {
+        id: '2',
+        name: 'Hotmart',
+        industry: 'Tecnologia / Educação',
+        contactName: 'Roberto Almeida',
+        contactEmail: 'roberto@hotmart.com',
+        phone: '(31) 98888-8888',
+        status: 'Ativo',
+        contractValue: 'R$ 15.000/mês',
+        logo: 'H'
+    },
+    {
+        id: '3',
+        name: 'Salesforce',
+        industry: 'SaaS / CRM',
+        contactName: 'Juliana Costa',
+        contactEmail: 'jcosta@salesforce.com',
+        phone: '(11) 97777-7777',
+        status: 'Negociação',
+        contractValue: 'R$ 40.000/projeto',
+        logo: 'S'
+    }
+];
+
+const INITIAL_CANDIDATES: Candidate[] = [
+    {
+        id: '1', jobId: '1', initials: 'DO', name: 'David Oliveira', email: 'david.oliveira@email.com', phone: '+55 11 98765-4321',
+        status: 'Triagem', stage: 'Triagem', avatarColor: 'bg-emerald-100 text-emerald-600', textColor: 'text-gray-700 dark:text-gray-300', badgeColor: 'bg-gray-100 dark:bg-gray-700/50', badgeText: 'Triagem',
+        resumeName: 'CV_David_Oliveira.pdf', resumeUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+        skills: ['React', 'Node.js', 'TypeScript', 'AWS'],
+        source: 'LinkedIn',
+        location: 'São Paulo, SP',
+        currentRole: 'Software Engineer',
+        seniority: 'Sênior',
+        notes: [
+            { id: 'n1', content: 'Candidato com forte experiência em React.', authorName: 'Ana Silva', authorAvatar: INITIAL_USERS[0].avatar, createdAt: '2023-10-24T10:00:00' }
+        ]
+    },
+    {
+        id: '2', jobId: '1', initials: 'BC', name: 'Bruno Costa', email: 'bruno.costa@tech.com', phone: '+55 11 99988-7766',
+        status: 'Entrevista', stage: 'Primeira Entrevista', avatarColor: 'bg-orange-100 text-orange-600', textColor: 'text-primary dark:text-blue-400', badgeColor: 'bg-primary/10 dark:bg-primary/20', badgeText: 'Entrevista',
+        resumeName: 'Bruno_Costa_Resume.pdf', resumeUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+        skills: ['JavaScript', 'Vue.js', 'PHP', 'Laravel'],
+        source: 'Indicação',
+        location: 'Curitiba, PR',
+        currentRole: 'Backend Developer',
+        seniority: 'Pleno',
+        notes: [
+            { id: 'n2', content: 'Agendado entrevista técnica para terça-feira.', authorName: 'Ana Silva', authorAvatar: INITIAL_USERS[0].avatar, createdAt: '2023-10-25T14:30:00' }
+        ]
+    },
+    {
+        id: '3', jobId: '2', initials: 'AS', name: 'Ana Silva', email: 'ana.silva@marketing.pro', phone: '+55 11 91234-5678',
+        status: 'Aprovado', stage: 'Entregue', avatarColor: 'bg-blue-100 text-primary', textColor: 'text-green-700 dark:text-green-400', badgeColor: 'bg-green-100 dark:bg-green-900/30', badgeText: 'Aprovado',
+        resumeName: 'Portfolio_Ana.pdf', resumeUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+        skills: ['Product Management', 'Growth', 'Data Analytics', 'SQL'],
+        source: 'Site da Empresa',
+        location: 'Belo Horizonte, MG',
+        currentRole: 'Product Owner',
+        seniority: 'Especialista',
+        notes: [
+            { id: 'n3', content: 'Aprovada pelo gestor. Aguardando proposta.', authorName: 'Lucas Santos', authorAvatar: INITIAL_USERS[1].avatar, createdAt: '2023-10-26T09:15:00' }
+        ]
+    },
+    {
+        id: '4', jobId: '3', initials: 'FM', name: 'Felipe Melo', email: 'felipe.melo@sales.com', phone: '+55 11 95555-4444',
+        status: 'Triagem', stage: 'Triagem', avatarColor: 'bg-purple-100 text-purple-600', textColor: 'text-gray-700 dark:text-gray-300', badgeColor: 'bg-gray-100 dark:bg-gray-700/50', badgeText: 'Triagem',
+        skills: ['Vendas B2B', 'CRM Salesforce', 'Negociação', 'Inglês Avançado'],
+        source: 'LinkedIn',
+        location: 'Rio de Janeiro, RJ',
+        currentRole: 'Sales Executive',
+        seniority: 'Sênior',
+        notes: []
+    }
+];
+
+export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const [users, setUsers] = useState<User[]>([]);
+    const currentUser = users[0] || { id: 'guest', name: 'Convidado', email: '', role: 'Junior Recruiter', status: 'Ativo', avatar: '' };
+    // Theme Management
+    const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+        const savedTheme = localStorage.getItem('theme');
+        return (savedTheme as 'light' | 'dark') || 'light';
+    });
+
+    useEffect(() => {
+        const root = window.document.documentElement;
+        root.classList.remove('light', 'dark');
+        root.classList.add(theme);
+        localStorage.setItem('theme', theme);
+    }, [theme]);
+
+    const toggleTheme = () => {
+        setTheme(prev => prev === 'light' ? 'dark' : 'light');
+    };
+
+    const [jobs, setJobs] = useState<Job[]>([]);
+    const [candidates, setCandidates] = useState<Candidate[]>([]);
+    const [clients, setClients] = useState<Client[]>([]);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
+
+    // Fetch initial data from Supabase
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                // Fetch Profiles
+                const { data: profilesData } = await supabase.from('profiles').select('*');
+                if (profilesData) {
+                    setUsers(profilesData.map(p => ({
+                        id: p.id,
+                        name: p.name,
+                        email: p.email,
+                        role: p.user_role as User['role'],
+                        status: p.status as User['status'],
+                        avatar: p.avatar_url,
+                        bio: p.bio,
+                        preferences: p.preferences
+                    })));
+                }
+
+                // Fetch Clients
+                const { data: clientsData } = await supabase.from('clients').select('*');
+                if (clientsData) {
+                    setClients(clientsData.map(c => ({
+                        id: c.id,
+                        name: c.name,
+                        industry: c.industry,
+                        contactName: c.contact_name,
+                        contactEmail: c.contact_email,
+                        phone: c.phone,
+                        status: c.status as Client['status'],
+                        contractValue: c.contract_value,
+                        logo: c.logo_url
+                    })));
+                }
+
+                // Fetch Jobs
+                const { data: jobsData } = await supabase.from('jobs').select('*');
+                if (jobsData) {
+                    setJobs(jobsData.map(j => ({
+                        id: j.id,
+                        title: j.title,
+                        company: j.company_name,
+                        stage: j.job_stage as Job['stage'],
+                        priority: j.priority as Job['priority'],
+                        tag: j.tag_label ? { label: j.tag_label, color: j.tag_color } : undefined,
+                        progress: j.progress,
+                        daysRemaining: j.days_remaining,
+                        recruiter: { id: j.recruiter_id, name: '', avatar: '' }, // Placeholder, will be linked if needed
+                        salaryMin: j.salary_min,
+                        salaryMax: j.salary_max,
+                        description: j.description,
+                        requirements: j.requirements
+                    })));
+                }
+
+                // Fetch Candidates
+                const { data: candidatesData } = await supabase.from('candidates').select('*');
+                if (candidatesData) {
+                    setCandidates(candidatesData.map(c => ({
+                        id: c.id,
+                        jobId: c.job_id,
+                        name: c.name,
+                        email: c.email,
+                        phone: c.phone,
+                        status: c.candidate_status as Candidate['status'],
+                        stage: c.candidate_stage as Candidate['stage'],
+                        resumeUrl: c.resume_url,
+                        resumeName: c.resume_name,
+                        skills: c.skills,
+                        source: c.source,
+                        location: c.location,
+                        currentRole: c.current_job_role,
+                        seniority: c.seniority as Candidate['seniority'],
+                        initials: c.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase(),
+                        avatarColor: 'bg-emerald-100 text-emerald-600', // Default
+                        textColor: 'text-gray-700',
+                        badgeColor: 'bg-gray-100',
+                        badgeText: c.candidate_stage
+                    })));
+                }
+
+                // Fetch Notifications
+                const { data: notifData } = await supabase.from('notifications').select('*').eq('user_id', currentUser.id);
+                if (notifData) {
+                    setNotifications(notifData.map(n => ({
+                        id: n.id,
+                        title: n.title,
+                        message: n.message,
+                        time: new Date(n.created_at).toLocaleTimeString(),
+                        read: n.is_read,
+                        type: n.notification_type as Notification['type']
+                    })));
+                }
+            } catch (error) {
+                console.error('Error fetching data from Supabase:', error);
+            }
+        };
+
+        fetchData();
+    }, [currentUser?.id]);
+    const addNotification = async (title: string, message: string, type: 'success' | 'warning' | 'info' = 'info') => {
+        const { data, error } = await supabase.from('notifications').insert({
+            user_id: currentUser.id,
+            title,
+            message,
+            notification_type: type,
+            is_read: false
+        }).select().single();
+
+        if (data && !error) {
+            const newNotification: Notification = {
+                id: data.id,
+                title: data.title,
+                message: data.message,
+                time: 'Agora',
+                read: data.is_read,
+                type: data.notification_type as Notification['type']
+            };
+            setNotifications(prev => [newNotification, ...prev]);
+        }
+    };
+
+    const addJob = async (jobData: Omit<Job, 'id'>) => {
+        const { data, error } = await supabase.from('jobs').insert({
+            title: jobData.title,
+            company_name: jobData.company,
+            job_stage: 'Vagas Abertas',
+            priority: jobData.priority,
+            tag_label: jobData.tag?.label,
+            tag_color: jobData.tag?.color,
+            progress: 0,
+            days_remaining: jobData.daysRemaining,
+            recruiter_id: jobData.recruiter.id,
+            salary_min: jobData.salaryMin,
+            salary_max: jobData.salaryMax,
+            description: jobData.description,
+            requirements: jobData.requirements
+        }).select().single();
+
+        if (data && !error) {
+            const newJob: Job = {
+                ...jobData,
+                id: data.id,
+                stage: 'Vagas Abertas',
+                progress: 0,
+                candidatesCount: 0
+            };
+            setJobs(prev => [...prev, newJob]);
+
+            if (newJob.recruiter.id === currentUser.id) {
+                addNotification('Nova Vaga Atribuída', `Você é o responsável pela vaga de ${newJob.title}.`, 'success');
+            }
+        }
+    };
+
+    const updateJobStage = async (jobId: string, newStage: Job['stage']) => {
+        const { error } = await supabase.from('jobs').update({ job_stage: newStage }).eq('id', jobId);
+
+        if (!error) {
+            setJobs(prevJobs => {
+                const job = prevJobs.find(j => j.id === jobId);
+                if (job && job.stage !== newStage && job.recruiter.id === currentUser.id) {
+                    addNotification(
+                        'Atualização de Pipeline',
+                        `A vaga ${job.title} moveu de "${job.stage}" para "${newStage}".`,
+                        'info'
+                    );
+                }
+                return prevJobs.map(j => j.id === jobId ? { ...j, stage: newStage } : j);
+            });
+        }
+    };
+
+    const addCandidate = async (candidateData: Omit<Candidate, 'id' | 'initials' | 'avatarColor' | 'textColor' | 'badgeColor' | 'badgeText' | 'notes'> & { notes?: Note[] }) => {
+        const { data, error } = await supabase.from('candidates').insert({
+            job_id: candidateData.jobId,
+            name: candidateData.name,
+            email: candidateData.email,
+            phone: candidateData.phone,
+            candidate_status: candidateData.status,
+            candidate_stage: candidateData.stage,
+            resume_url: candidateData.resumeUrl,
+            resume_name: candidateData.resumeName,
+            skills: candidateData.skills,
+            source: candidateData.source,
+            location: candidateData.location,
+            current_job_role: candidateData.currentRole,
+            seniority: candidateData.seniority
+        }).select().single();
+
+        if (data && !error) {
+            const initials = data.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
+
+            // Helper for colors based on status (simplified)
+            let colors = { avatarColor: 'bg-gray-100 text-gray-600', textColor: 'text-gray-700', badgeColor: 'bg-gray-100', badgeText: data.candidate_status };
+            if (data.candidate_stage === 'Triagem') colors = { avatarColor: 'bg-emerald-100 text-emerald-600', textColor: 'text-gray-700 dark:text-gray-300', badgeColor: 'bg-gray-100 dark:bg-gray-700/50', badgeText: 'Triagem' };
+
+            const newCandidate: Candidate = {
+                ...candidateData,
+                id: data.id,
+                initials,
+                notes: candidateData.notes || [],
+                ...colors
+            };
+
+            setCandidates(prev => [...prev, newCandidate]);
+
+            // Update Job candidate count local
+            setJobs(prev => prev.map(j => j.id === candidateData.jobId ? { ...j, candidatesCount: (j.candidatesCount || 0) + 1 } : j));
+        }
+    };
+
+    const updateCandidateStage = async (candidateId: string, newStage: Candidate['stage']) => {
+        const { error } = await supabase.from('candidates').update({ candidate_stage: newStage }).eq('id', candidateId);
+        if (!error) {
+            setCandidates(prev => prev.map(c => c.id === candidateId ? { ...c, stage: newStage } : c));
+        }
+    };
+
+    const updateCandidate = async (candidateId: string, updates: Partial<Candidate>) => {
+        // Map updates to DB columns
+        const dbUpdates: any = {};
+        if (updates.name) dbUpdates.name = updates.name;
+        if (updates.email) dbUpdates.email = updates.email;
+        if (updates.phone) dbUpdates.phone = updates.phone;
+        if (updates.status) dbUpdates.candidate_status = updates.status;
+        if (updates.stage) dbUpdates.candidate_stage = updates.stage;
+        if (updates.resumeUrl) dbUpdates.resume_url = updates.resumeUrl;
+        if (updates.resumeName) dbUpdates.resume_name = updates.resumeName;
+        if (updates.skills) dbUpdates.skills = updates.skills;
+        if (updates.source) dbUpdates.source = updates.source;
+        if (updates.location) dbUpdates.location = updates.location;
+        if (updates.currentRole) dbUpdates.current_job_role = updates.currentRole;
+        if (updates.seniority) dbUpdates.seniority = updates.seniority;
+
+        const { error } = await supabase.from('candidates').update(dbUpdates).eq('id', candidateId);
+        if (!error) {
+            setCandidates(prev => prev.map(c => c.id === candidateId ? { ...c, ...updates } : c));
+        }
+    };
+
+    // User Operations
+    const addUser = async (userData: Omit<User, 'id'>) => {
+        // Note: For real auth, use supabase.auth.signUp. This is for profile management.
+        const { data, error } = await supabase.from('profiles').insert({
+            name: userData.name,
+            email: userData.email,
+            user_role: userData.role,
+            status: userData.status,
+            avatar_url: userData.avatar,
+            bio: userData.bio,
+            preferences: userData.preferences
+        }).select().single();
+
+        if (data && !error) {
+            const newUser: User = {
+                ...userData,
+                id: data.id,
+            };
+            setUsers(prev => [...prev, newUser]);
+            addNotification('Novo Usuário', `${newUser.name} foi adicionado ao sistema.`, 'success');
+        }
+    };
+
+    const updateUser = async (userId: string, updates: Partial<User>) => {
+        const dbUpdates: any = {};
+        if (updates.name) dbUpdates.name = updates.name;
+        if (updates.email) dbUpdates.email = updates.email;
+        if (updates.role) dbUpdates.user_role = updates.role;
+        if (updates.status) dbUpdates.status = updates.status;
+        if (updates.avatar) dbUpdates.avatar_url = updates.avatar;
+        if (updates.bio) dbUpdates.bio = updates.bio;
+        if (updates.preferences) dbUpdates.preferences = updates.preferences;
+
+        const { error } = await supabase.from('profiles').update(dbUpdates).eq('id', userId);
+        if (!error) {
+            setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updates } : u));
+
+            // If current user is updated, notify
+            if (userId === currentUser.id) {
+                addNotification('Perfil Atualizado', 'Suas informações de perfil foram salvas.', 'success');
+            }
+        }
+    };
+
+    const deleteUser = async (userId: string) => {
+        const { error } = await supabase.from('profiles').delete().eq('id', userId);
+        if (!error) {
+            setUsers(prev => prev.filter(u => u.id !== userId));
+        }
+    };
+
+    // Client Operations
+    const addClient = async (clientData: Omit<Client, 'id'>) => {
+        const { data, error } = await supabase.from('clients').insert({
+            name: clientData.name,
+            industry: clientData.industry,
+            contact_name: clientData.contactName,
+            contact_email: clientData.contactEmail,
+            phone: clientData.phone,
+            status: clientData.status,
+            contract_value: clientData.contractValue,
+            logo_url: clientData.logo
+        }).select().single();
+
+        if (data && !error) {
+            const newClient: Client = {
+                ...clientData,
+                id: data.id,
+            };
+            setClients(prev => [...prev, newClient]);
+            addNotification('Novo Cliente', `${newClient.name} foi adicionado à carteira.`, 'success');
+        }
+    };
+
+    const updateClient = async (clientId: string, updates: Partial<Client>) => {
+        const dbUpdates: any = {};
+        if (updates.name) dbUpdates.name = updates.name;
+        if (updates.industry) dbUpdates.industry = updates.industry;
+        if (updates.contactName) dbUpdates.contact_name = updates.contactName;
+        if (updates.contactEmail) dbUpdates.contact_email = updates.contactEmail;
+        if (updates.phone) dbUpdates.phone = updates.phone;
+        if (updates.status) dbUpdates.status = updates.status;
+        if (updates.contractValue) dbUpdates.contract_value = updates.contractValue;
+        if (updates.logo) dbUpdates.logo_url = updates.logo;
+
+        const { error } = await supabase.from('clients').update(dbUpdates).eq('id', clientId);
+        if (!error) {
+            setClients(prev => prev.map(c => c.id === clientId ? { ...c, ...updates } : c));
+        }
+    };
+
+    const markNotificationAsRead = async (id: string) => {
+        const { error } = await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+        if (!error) {
+            setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+        }
+    };
+
+    const clearNotifications = async () => {
+        const { error } = await supabase.from('notifications').delete().eq('user_id', currentUser.id);
+        if (!error) {
+            setNotifications([]);
+        }
+    };
+
+    return (
+        <AppContext.Provider value={{
+            jobs,
+            users,
+            candidates,
+            clients,
+            notifications,
+            currentUser,
+            theme,
+            toggleTheme,
+            addJob,
+            updateJobStage,
+            addCandidate,
+            updateCandidateStage,
+            updateCandidate,
+            addUser,
+            updateUser,
+            deleteUser,
+            addClient,
+            updateClient,
+            markNotificationAsRead,
+            clearNotifications
+        }}>
+            {children}
+        </AppContext.Provider>
+    );
+};
+
+export const useApp = () => {
+    const context = useContext(AppContext);
+    if (context === undefined) {
+        throw new Error('useApp must be used within an AppProvider');
+    }
+    return context;
+};
