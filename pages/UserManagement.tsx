@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { User } from '../types';
-import { supabase } from '../supabase';
+import { createClient } from '@supabase/supabase-js';
+import { supabase } from '../supabase'; // Keep main client for other things if needed
 
 export const UserManagement: React.FC = () => {
     const { users, addUser, updateUser, deleteUser, currentUser } = useApp();
@@ -73,14 +74,29 @@ export const UserManagement: React.FC = () => {
                     status: formData.status as User['status']
                 });
             } else {
-                // Create auth user in Supabase
-                const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+                // Create a temporary client to sign up the new user without logging out the admin
+                // We need to use the env vars directly here since we can't easily import them from a module inside the component effectively for a new instance
+                // Assuming Vite env vars are available
+                const tempSupabase = createClient(
+                    import.meta.env.VITE_SUPABASE_URL,
+                    import.meta.env.VITE_SUPABASE_ANON_KEY,
+                    {
+                        auth: {
+                            persistSession: false, // Critical: Don't overwrite the admin session
+                            autoRefreshToken: false,
+                            detectSessionInUrl: false
+                        }
+                    }
+                );
+
+                const { data: authData, error: authError } = await tempSupabase.auth.signUp({
                     email: formData.email,
                     password: formData.password,
-                    email_confirm: true,
-                    user_metadata: {
-                        name: formData.name,
-                        role: formData.role
+                    options: {
+                        data: {
+                            name: formData.name,
+                            role: formData.role
+                        }
                     }
                 });
 
@@ -96,11 +112,12 @@ export const UserManagement: React.FC = () => {
                     return;
                 }
 
-                // Add user to profiles table
+                // Add user to profiles table with the Auth ID
                 addUser({
+                    id: authData.user.id,
                     name: formData.name,
                     email: formData.email,
-                    password: formData.password,
+                    password: formData.password as any, // Ignored by profile insert
                     role: formData.role as User['role'],
                     status: formData.status as User['status'],
                     avatar: initials // Default to initials

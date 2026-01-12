@@ -440,9 +440,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     // User Operations
-    const addUser = async (userData: Omit<User, 'id'>) => {
+    const addUser = async (userData: Omit<User, 'id'> & { id?: string }) => {
         // Note: For real auth, use supabase.auth.signUp. This is for profile management.
-        const { data, error } = await supabase.from('profiles').insert({
+        const insertData: any = {
             name: userData.name,
             email: userData.email,
             user_role: userData.role,
@@ -450,7 +450,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             avatar_url: userData.avatar,
             bio: userData.bio,
             preferences: userData.preferences
-        }).select().single();
+        };
+
+        if (userData.id) {
+            insertData.id = userData.id;
+        }
+
+        const { data, error } = await supabase.from('profiles').insert(insertData).select().single();
 
         if (data && !error) {
             const newUser: User = {

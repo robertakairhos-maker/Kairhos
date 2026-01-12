@@ -51,8 +51,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             <div className="w-full max-w-[480px] p-6 sm:p-10">
                 {/* Logo / Brand Section */}
                 <div className="flex flex-col items-center mb-8">
-                    <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-600 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/20 mb-4">
-                        <span className="material-symbols-outlined text-white text-4xl">hourglass_top</span>
+                    <div className="mb-4">
+                        <img src="/logo.png" alt="Kairhos Logo" className="h-20 w-auto" />
                     </div>
                     <h1 className="text-[#111318] dark:text-white text-2xl font-bold tracking-tight">Kairhos RH e CRM</h1>
                     <p className="text-[#616f89] dark:text-[#94a3b8] text-sm font-normal mt-1 text-center">Acesse o CRM de Recrutamento da agência</p>
