@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Kairhos RH</string>
+    <string name="title_activity_main">Kairhos RH</string>
+    <string name="package_name">com.kairhos.app</string>
+    <string name="custom_url_scheme">com.kairhos.app</string>
+</resources>
