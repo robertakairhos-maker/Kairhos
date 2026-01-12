@@ -12,7 +12,7 @@ export const Dashboard: React.FC = () => {
     const activeJobs = jobs.filter(j => j.stage !== 'Entregue' && j.stage !== 'Retrabalho').length;
     const criticalJobs = jobs.filter(j => j.priority === 'Crítico').length;
     const closedJobs = totalJobs - activeJobs;
-    
+
     const candidatesPerJob = totalJobs > 0 ? (totalCandidates / totalJobs).toFixed(1) : '0';
 
     // Get jobs closing soon (sorted by days remaining)
@@ -38,7 +38,7 @@ export const Dashboard: React.FC = () => {
                     <p className="text-sm text-slate-500">Visão geral dos indicadores de desempenho de recrutamento.</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <div className="text-right hidden lg:block">
+                    <div className="text-right hidden sm:block">
                         <p className="text-xs font-bold dark:text-white">{currentUser.name}</p>
                         <p className="text-[10px] text-[#616f89]">{currentUser.role}</p>
                     </div>
@@ -49,9 +49,9 @@ export const Dashboard: React.FC = () => {
             </header>
 
             <div className="p-8 max-w-[1600px] mx-auto w-full flex flex-col gap-8">
-                
+
                 {/* KPI Cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                     <div className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex items-start justify-between">
                         <div>
                             <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Vagas Ativas</p>
@@ -108,7 +108,7 @@ export const Dashboard: React.FC = () => {
 
                 {/* Main Content Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    
+
                     {/* Left Column: Job Table */}
                     <div className="lg:col-span-2 bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col">
                         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
@@ -116,13 +116,13 @@ export const Dashboard: React.FC = () => {
                             <button onClick={() => navigate('/pipeline')} className="text-sm text-primary font-bold hover:underline">Ver Pipeline Completo</button>
                         </div>
                         <div className="overflow-x-auto">
-                            <table className="w-full text-left">
+                            <table className="w-full text-left min-w-[600px]">
                                 <thead className="bg-slate-50 dark:bg-slate-800/50">
                                     <tr>
                                         <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Vaga</th>
                                         <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Empresa</th>
                                         <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Etapa</th>
-                                        <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase">Progresso</th>
+                                        <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase hidden sm:table-cell">Progresso</th>
                                         <th className="px-6 py-3 text-xs font-bold text-slate-500 uppercase text-right">Candidatos</th>
                                     </tr>
                                 </thead>
@@ -135,15 +135,14 @@ export const Dashboard: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{job.company}</td>
                                             <td className="px-6 py-4">
-                                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                                                    job.stage === 'Entregue' ? 'bg-green-100 text-green-700' :
-                                                    job.stage === 'Vagas Abertas' ? 'bg-blue-100 text-blue-700' :
-                                                    'bg-amber-100 text-amber-700'
-                                                }`}>
+                                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap ${job.stage === 'Entregue' ? 'bg-green-100 text-green-700' :
+                                                        job.stage === 'Vagas Abertas' ? 'bg-blue-100 text-blue-700' :
+                                                            'bg-amber-100 text-amber-700'
+                                                    }`}>
                                                     {job.stage}
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 w-32">
+                                            <td className="px-6 py-4 w-32 hidden sm:table-cell">
                                                 <div className="w-full bg-slate-100 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
                                                     <div className="bg-primary h-full" style={{ width: `${job.progress}%` }}></div>
                                                 </div>
@@ -162,7 +161,7 @@ export const Dashboard: React.FC = () => {
 
                     {/* Right Column: Deadlines & Distribution */}
                     <div className="flex flex-col gap-6">
-                        
+
                         {/* Funnel Distribution */}
                         <div className="bg-white dark:bg-slate-900 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
                             <h3 className="text-lg font-bold text-[#111318] dark:text-white mb-4">Distribuição do Funnel</h3>

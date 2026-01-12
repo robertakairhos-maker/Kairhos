@@ -22,38 +22,68 @@ export const Layout: React.FC<LayoutProps> = ({ children, onLogout }) => {
 
   return (
     <div className="flex h-screen overflow-hidden bg-background-light dark:bg-background-dark">
+      {/* Mobile Burger Menu Button */}
+      {/* Mobile Sidebar Overlay */}
+      {showNotifications && (
+        <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setShowNotifications(false)}></div>
+      )}
+
+      {/* Mobile Header */}
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-white dark:bg-background-dark border-b border-[#dbdfe6] dark:border-gray-800 flex items-center justify-between px-4 z-30">
+        <div className="flex items-center gap-3">
+          <button onClick={() => setShowNotifications(true)} className="p-2 -ml-2 text-[#616f89] dark:text-gray-400">
+            <span className="material-symbols-outlined text-2xl">menu</span>
+          </button>
+          <img src="/logo.png" alt="Kairhos Logo" className="h-8 w-auto object-contain" />
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <span className="material-symbols-outlined text-[#616f89] dark:text-gray-400 text-2xl">notifications</span>
+            {unreadCount > 0 && <span className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></span>}
+          </div>
+        </div>
+      </div>
+
       {/* Sidebar Navigation */}
-      <aside className="w-64 flex-shrink-0 border-r border-[#dbdfe6] dark:border-gray-800 bg-white dark:bg-background-dark h-full flex flex-col justify-between p-4 transition-all duration-300">
+      <aside className={`
+        fixed inset-y-0 left-0 z-50 w-64 bg-white dark:bg-background-dark border-r border-[#dbdfe6] dark:border-gray-800 transition-transform duration-300 ease-in-out lg:translate-x-0 lg:static lg:h-full lg:flex flex-col justify-between p-4
+        ${showNotifications ? 'translate-x-0' : '-translate-x-full'}
+      `}>
         <div className="flex flex-col gap-8">
-          <div className="flex items-center gap-3 px-2">
+          <div className="flex items-center justify-between px-2">
             <div className="px-2">
-              <img src="/logo.png" alt="Kairhos Logo" className="h-12 w-auto object-contain" />
+              <img src="/logo.png" alt="Kairhos Logo" className="h-10 w-auto object-contain lg:h-12" />
             </div>
+            <button onClick={() => setShowNotifications(false)} className="lg:hidden p-1 text-[#616f89] dark:text-gray-400">
+              <span className="material-symbols-outlined">close</span>
+            </button>
           </div>
 
           <nav className="flex flex-col gap-1">
-            <Link to="/dashboard" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/dashboard')}`}>
-              <span className="material-symbols-outlined">dashboard</span>
-              <span className="text-sm">Dashboard</span>
-            </Link>
-            <Link to="/pipeline" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/pipeline')}`}>
-              <span className="material-symbols-outlined">view_kanban</span>
-              <span className="text-sm">Pipeline</span>
-            </Link>
-            <Link to="/jobs/new" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${location.pathname === '/jobs/new' ? "bg-primary/10 text-primary font-semibold" : "text-[#616f89] hover:bg-gray-100 dark:hover:bg-gray-800 font-medium"}`}>
-              <span className="material-symbols-outlined">add_circle</span>
-              <span className="text-sm">Nova Vaga</span>
-            </Link>
-            <Link to="/candidates" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/candidates')}`}>
-              <span className="material-symbols-outlined">person_search</span>
-              <span className="text-sm">Banco de Talentos</span>
-            </Link>
-            <Link to="/users" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/users')}`}>
-              <span className="material-symbols-outlined">group</span>
-              <span className="text-sm">Usuários</span>
-            </Link>
+            {[
+              { path: '/dashboard', icon: 'dashboard', label: 'Dashboard' },
+              { path: '/pipeline', icon: 'view_kanban', label: 'Pipeline' },
+              { path: '/jobs/new', icon: 'add_circle', label: 'Nova Vaga' },
+              { path: '/candidates', icon: 'person_search', label: 'Banco de Talentos' },
+              { path: '/users', icon: 'group', label: 'Usuários' }
+            ].map(link => (
+              <Link
+                key={link.path}
+                to={link.path}
+                onClick={() => setShowNotifications(false)}
+                className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${link.path === '/jobs/new'
+                    ? (location.pathname === '/jobs/new' ? "bg-primary/10 text-primary font-semibold" : "text-[#616f89] hover:bg-gray-100 dark:hover:bg-gray-800 font-medium")
+                    : isActive(link.path)
+                  }`}
+              >
+                <span className="material-symbols-outlined">{link.icon}</span>
+                <span className="text-sm">{link.label}</span>
+              </Link>
+            ))}
+
             <div className="my-4 border-t border-[#dbdfe6] dark:border-gray-800"></div>
-            <Link to="/settings" className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/settings')}`}>
+
+            <Link to="/settings" onClick={() => setShowNotifications(false)} className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${isActive('/settings')}`}>
               <span className="material-symbols-outlined">settings</span>
               <span className="text-sm font-medium">Configurações</span>
             </Link>
@@ -73,8 +103,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, onLogout }) => {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col relative">
-        <main className="flex-1 overflow-y-auto h-full">
+      <div className="flex-1 flex flex-col relative w-full lg:w-auto">
+        <main className="flex-1 overflow-y-auto h-full pt-16 lg:pt-0">
           {children}
         </main>
       </div>

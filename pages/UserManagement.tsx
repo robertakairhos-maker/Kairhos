@@ -153,7 +153,7 @@ export const UserManagement: React.FC = () => {
                 </div>
                 <button
                     onClick={handleOpenAdd}
-                    className="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-lg font-bold flex items-center gap-2 shadow-lg shadow-primary/20 transition-all"
+                    className="w-full sm:w-auto bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-lg font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 transition-all text-sm sm:text-base mt-4 sm:mt-0"
                 >
                     <span className="material-symbols-outlined">add</span>
                     Adicionar Novo Usuário
@@ -203,9 +203,9 @@ export const UserManagement: React.FC = () => {
                         <thead>
                             <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800">
                                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Usuário</th>
-                                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">E-mail</th>
-                                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Cargo</th>
-                                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Status</th>
+                                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 hidden sm:table-cell">E-mail</th>
+                                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 hidden md:table-cell">Cargo</th>
+                                <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 hidden md:table-cell">Status</th>
                                 <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500 text-right">Ações</th>
                             </tr>
                         </thead>
@@ -226,18 +226,19 @@ export const UserManagement: React.FC = () => {
                                                 )}
                                                 <div>
                                                     <p className="font-bold text-sm text-[#111318] dark:text-white">{user.name}</p>
-                                                    <p className="text-xs text-slate-500">ID: {user.id}</p>
+                                                    <p className="text-xs text-slate-500 sm:hidden">{user.email}</p>
+                                                    <p className="text-xs text-slate-500 md:hidden">{user.role}</p>
                                                 </div>
                                             </div>
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{user.email}</td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400 hidden sm:table-cell">{user.email}</td>
+                                        <td className="px-6 py-4 hidden md:table-cell">
                                             <span className={`px-3 py-1 rounded-full text-xs font-bold ${user.role === 'Admin' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                                                 }`}>
                                                 {user.role}
                                             </span>
                                         </td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-4 hidden md:table-cell">
                                             <span className={`flex items-center gap-1.5 text-xs font-bold ${user.status === 'Ativo' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'
                                                 }`}>
                                                 <span className={`w-2 h-2 rounded-full ${user.status === 'Ativo' ? 'bg-emerald-500' : 'bg-slate-400'

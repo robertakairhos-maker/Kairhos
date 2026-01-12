@@ -30,7 +30,7 @@ export const CreateJob: React.FC = () => {
 
     const handleSubmit = (e: React.FormEvent) => {
         e.preventDefault();
-        
+
         // Find selected recruiter
         const recruiter = users.find(u => u.id === formData.recruiterId);
         if (!recruiter) {
@@ -68,7 +68,7 @@ export const CreateJob: React.FC = () => {
     };
 
     return (
-        <div className="max-w-[1024px] mx-auto py-8 px-8">
+        <div className="max-w-[1024px] mx-auto py-4 sm:py-8 px-4 sm:px-8">
             {/* Breadcrumbs */}
             <nav className="flex flex-wrap gap-2 mb-4">
                 <span onClick={() => navigate('/dashboard')} className="text-[#616f89] hover:text-primary text-sm font-medium transition-colors cursor-pointer">Vagas</span>
@@ -84,30 +84,30 @@ export const CreateJob: React.FC = () => {
 
             {/* Form Card */}
             <div className="bg-white dark:bg-gray-900 border border-[#dbdfe6] dark:border-gray-800 rounded-xl shadow-sm">
-                <form onSubmit={handleSubmit} className="p-8 flex flex-col gap-8">
+                <form onSubmit={handleSubmit} className="p-4 sm:p-8 flex flex-col gap-6 sm:gap-8">
                     {/* Row 1: Job Title & Client */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <label className="flex flex-col gap-2">
                             <span className="text-[#111318] dark:text-gray-200 text-sm font-bold">Título da Vaga</span>
-                            <input 
+                            <input
                                 name="title"
                                 value={formData.title}
                                 onChange={handleInputChange}
-                                type="text" 
-                                className="form-input w-full rounded-lg border-[#dbdfe6] dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white h-12 px-4 focus:ring-primary focus:border-primary" 
-                                placeholder="Ex: Desenvolvedor Full Stack Senior" 
-                                required 
+                                type="text"
+                                className="form-input w-full rounded-lg border-[#dbdfe6] dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white h-12 px-4 focus:ring-primary focus:border-primary"
+                                placeholder="Ex: Desenvolvedor Full Stack Senior"
+                                required
                             />
                         </label>
                         <label className="flex flex-col gap-2">
                             <span className="text-[#111318] dark:text-gray-200 text-sm font-bold">Nome do Cliente / Empresa</span>
-                            <input 
+                            <input
                                 name="company"
                                 value={formData.company}
                                 onChange={handleInputChange}
-                                type="text" 
-                                className="form-input w-full rounded-lg border-[#dbdfe6] dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white h-12 px-4 focus:ring-primary focus:border-primary" 
-                                placeholder="Selecione ou digite a empresa" 
+                                type="text"
+                                className="form-input w-full rounded-lg border-[#dbdfe6] dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white h-12 px-4 focus:ring-primary focus:border-primary"
+                                placeholder="Selecione ou digite a empresa"
                                 required
                             />
                         </label>
@@ -115,10 +115,10 @@ export const CreateJob: React.FC = () => {
 
                     {/* Row 2: Recruiter Selection & Deadline */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                         <label className="flex flex-col gap-2">
+                        <label className="flex flex-col gap-2">
                             <span className="text-[#111318] dark:text-gray-200 text-sm font-bold">Recrutador Responsável (Vincular Usuário)</span>
                             <div className="relative">
-                                <select 
+                                <select
                                     name="recruiterId"
                                     value={formData.recruiterId}
                                     onChange={handleInputChange}
@@ -136,12 +136,12 @@ export const CreateJob: React.FC = () => {
                         <label className="flex flex-col gap-2">
                             <span className="text-[#111318] dark:text-gray-200 text-sm font-bold">Prazo de Encerramento (Deadline)</span>
                             <div className="relative">
-                                <input 
+                                <input
                                     name="deadline"
                                     value={formData.deadline}
                                     onChange={handleInputChange}
-                                    type="date" 
-                                    className="form-input w-full rounded-lg border-[#dbdfe6] dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white h-12 px-4 focus:ring-primary focus:border-primary" 
+                                    type="date"
+                                    className="form-input w-full rounded-lg border-[#dbdfe6] dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white h-12 px-4 focus:ring-primary focus:border-primary"
                                 />
                                 <span className="material-symbols-outlined absolute right-3 top-3 text-[#616f89] pointer-events-none">calendar_today</span>
                             </div>
@@ -153,35 +153,35 @@ export const CreateJob: React.FC = () => {
                         <span className="text-[#111318] dark:text-gray-200 text-sm font-bold">Nível de Prioridade</span>
                         <div className="flex h-12 p-1 bg-[#f0f2f4] dark:bg-gray-800 rounded-lg max-w-md">
                             <label className="flex-1 flex items-center justify-center cursor-pointer">
-                                <input 
-                                    type="radio" 
-                                    name="priority" 
-                                    value="low" 
-                                    checked={formData.priority === 'low'} 
-                                    onChange={() => handlePriorityChange('low')} 
-                                    className="hidden peer" 
+                                <input
+                                    type="radio"
+                                    name="priority"
+                                    value="low"
+                                    checked={formData.priority === 'low'}
+                                    onChange={() => handlePriorityChange('low')}
+                                    className="hidden peer"
                                 />
                                 <span className="w-full h-full flex items-center justify-center text-sm font-medium text-[#616f89] peer-checked:bg-white dark:peer-checked:bg-gray-700 peer-checked:text-[#111318] dark:peer-checked:text-white rounded-md transition-all shadow-sm peer-checked:shadow">Baixa</span>
                             </label>
                             <label className="flex-1 flex items-center justify-center cursor-pointer">
-                                <input 
-                                    type="radio" 
-                                    name="priority" 
-                                    value="medium" 
-                                    checked={formData.priority === 'medium'} 
-                                    onChange={() => handlePriorityChange('medium')} 
-                                    className="hidden peer" 
+                                <input
+                                    type="radio"
+                                    name="priority"
+                                    value="medium"
+                                    checked={formData.priority === 'medium'}
+                                    onChange={() => handlePriorityChange('medium')}
+                                    className="hidden peer"
                                 />
                                 <span className="w-full h-full flex items-center justify-center text-sm font-medium text-[#616f89] peer-checked:bg-white dark:peer-checked:bg-gray-700 peer-checked:text-[#111318] dark:peer-checked:text-white rounded-md transition-all shadow-sm peer-checked:shadow">Média</span>
                             </label>
                             <label className="flex-1 flex items-center justify-center cursor-pointer">
-                                <input 
-                                    type="radio" 
-                                    name="priority" 
-                                    value="high" 
-                                    checked={formData.priority === 'high'} 
-                                    onChange={() => handlePriorityChange('high')} 
-                                    className="hidden peer" 
+                                <input
+                                    type="radio"
+                                    name="priority"
+                                    value="high"
+                                    checked={formData.priority === 'high'}
+                                    onChange={() => handlePriorityChange('high')}
+                                    className="hidden peer"
                                 />
                                 <span className="w-full h-full flex items-center justify-center text-sm font-medium text-[#616f89] peer-checked:bg-white dark:peer-checked:bg-gray-700 peer-checked:text-[#111318] dark:peer-checked:text-white rounded-md transition-all shadow-sm peer-checked:shadow">Alta</span>
                             </label>
@@ -194,40 +194,40 @@ export const CreateJob: React.FC = () => {
                         <div className="grid grid-cols-2 gap-4 max-w-md">
                             <div className="relative">
                                 <span className="absolute left-4 top-3 text-[#616f89] text-sm">R$</span>
-                                <input 
+                                <input
                                     name="salaryMin"
                                     value={formData.salaryMin}
                                     onChange={handleInputChange}
-                                    type="number" 
-                                    className="form-input w-full rounded-lg border-[#dbdfe6] dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white h-12 pl-10 pr-4 focus:ring-primary focus:border-primary" 
-                                    placeholder="Mínimo" 
+                                    type="number"
+                                    className="form-input w-full rounded-lg border-[#dbdfe6] dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white h-12 pl-10 pr-4 focus:ring-primary focus:border-primary"
+                                    placeholder="Mínimo"
                                 />
                             </div>
                             <div className="relative">
                                 <span className="absolute left-4 top-3 text-[#616f89] text-sm">R$</span>
-                                <input 
+                                <input
                                     name="salaryMax"
                                     value={formData.salaryMax}
                                     onChange={handleInputChange}
-                                    type="number" 
-                                    className="form-input w-full rounded-lg border-[#dbdfe6] dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white h-12 pl-10 pr-4 focus:ring-primary focus:border-primary" 
-                                    placeholder="Máximo" 
+                                    type="number"
+                                    className="form-input w-full rounded-lg border-[#dbdfe6] dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white h-12 pl-10 pr-4 focus:ring-primary focus:border-primary"
+                                    placeholder="Máximo"
                                 />
                             </div>
                         </div>
                     </div>
 
-                     {/* Row 5: Requirements */}
-                     <label className="flex flex-col gap-2">
+                    {/* Row 5: Requirements */}
+                    <label className="flex flex-col gap-2">
                         <div className="flex justify-between items-center">
                             <span className="text-[#111318] dark:text-gray-200 text-sm font-bold">Requisitos Técnicos (Tags)</span>
                         </div>
-                        <input 
+                        <input
                             name="requirements"
                             value={formData.requirements}
                             onChange={handleInputChange}
                             type="text"
-                            className="form-input w-full rounded-lg border-[#dbdfe6] dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white h-12 px-4 focus:ring-primary focus:border-primary" 
+                            className="form-input w-full rounded-lg border-[#dbdfe6] dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white h-12 px-4 focus:ring-primary focus:border-primary"
                             placeholder="Ex: React, Node.js, Inglês Fluente (Separe por vírgula)"
                         />
                     </label>
@@ -238,11 +238,11 @@ export const CreateJob: React.FC = () => {
                             <span className="text-[#111318] dark:text-gray-200 text-sm font-bold">Descrição e Requisitos</span>
                             <span className="text-[#616f89] text-xs font-normal">Markdown suportado</span>
                         </div>
-                        <textarea 
+                        <textarea
                             name="description"
                             value={formData.description}
                             onChange={handleInputChange}
-                            className="form-textarea w-full min-h-[200px] rounded-lg border-[#dbdfe6] dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white p-4 focus:ring-primary focus:border-primary resize-y" 
+                            className="form-textarea w-full min-h-[200px] rounded-lg border-[#dbdfe6] dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white p-4 focus:ring-primary focus:border-primary resize-y"
                             placeholder="Descreva as responsabilidades, competências técnicas e diferenciais..."
                         ></textarea>
                     </label>
