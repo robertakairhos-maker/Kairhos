@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Job, KanbanColumnData } from '../types';
 import { useApp } from '../context/AppContext';
@@ -41,6 +41,40 @@ export const Pipeline: React.FC = () => {
     };
 
     const unreadCount = notifications.filter(n => !n.read).length;
+
+    // --- Drag to Scroll Handlers ---
+    const boardRef = useRef<HTMLDivElement>(null);
+    const [isDragScroll, setIsDragScroll] = useState(false);
+    const [startX, setStartX] = useState(0);
+    const [scrollLeft, setScrollLeft] = useState(0);
+
+    const handleBoardMouseDown = (e: React.MouseEvent) => {
+        // Prevent if clicking interactable elements or draggable cards
+        if ((e.target as HTMLElement).closest('[draggable="true"]')) return;
+        if ((e.target as HTMLElement).closest('button')) return;
+        if ((e.target as HTMLElement).closest('input')) return;
+
+        if (!boardRef.current) return;
+        setIsDragScroll(true);
+        setStartX(e.pageX - boardRef.current.offsetLeft);
+        setScrollLeft(boardRef.current.scrollLeft);
+    };
+
+    const handleBoardMouseMove = (e: React.MouseEvent) => {
+        if (!isDragScroll || !boardRef.current) return;
+        e.preventDefault();
+        const x = e.pageX - boardRef.current.offsetLeft;
+        const walk = (x - startX) * 2; // Scroll speed multiplier
+        boardRef.current.scrollLeft = scrollLeft - walk;
+    };
+
+    const handleBoardMouseUp = () => {
+        setIsDragScroll(false);
+    };
+
+    const handleBoardMouseLeave = () => {
+        setIsDragScroll(false);
+    };
 
     // --- Handlers ---
 
@@ -195,7 +229,14 @@ export const Pipeline: React.FC = () => {
                 {/* View Mode Switcher */}
                 {viewMode === 'kanban' ? (
                     // KANBAN VIEW
-                    <div className="flex-1 overflow-x-auto custom-scrollbar px-6 pb-8">
+                    <div
+                        ref={boardRef}
+                        onMouseDown={handleBoardMouseDown}
+                        onMouseLeave={handleBoardMouseLeave}
+                        onMouseUp={handleBoardMouseUp}
+                        onMouseMove={handleBoardMouseMove}
+                        className={`flex-1 overflow-x-auto custom-scrollbar px-6 pb-8 ${isDragScroll ? 'cursor-grabbing select-none' : 'cursor-default'}`}
+                    >
                         <div className="flex gap-6 h-full items-start">
                             {columns.map((col) => (
                                 <div
