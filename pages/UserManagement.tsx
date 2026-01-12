@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { User } from '../types';
+import { supabase } from '../supabase';
 
 export const UserManagement: React.FC = () => {
     const { users, addUser, updateUser, deleteUser, currentUser } = useApp();
@@ -9,12 +10,12 @@ export const UserManagement: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [roleFilter, setRoleFilter] = useState<string>('Todos');
     const [statusFilter, setStatusFilter] = useState<string>('Todos');
-    
+
     // Modal State
     const [showModal, setShowModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
-    
+
     // Form State
     const [formData, setFormData] = useState({
         name: '',
@@ -23,13 +24,15 @@ export const UserManagement: React.FC = () => {
         role: 'Junior Recruiter',
         status: 'Ativo'
     });
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [submitError, setSubmitError] = useState('');
 
     const filteredUsers = users.filter(user => {
-        const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                              user.email.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            user.email.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesRole = roleFilter === 'Todos' || user.role === roleFilter;
         const matchesStatus = statusFilter === 'Todos' || user.status === statusFilter;
-        
+
         return matchesSearch && matchesRole && matchesStatus;
     });
 
@@ -43,40 +46,72 @@ export const UserManagement: React.FC = () => {
     const handleOpenEdit = (user: User) => {
         setIsEditing(true);
         setEditingId(user.id);
-        setFormData({ 
-            name: user.name, 
-            email: user.email, 
+        setFormData({
+            name: user.name,
+            email: user.email,
             password: '', // Don't show existing password
-            role: user.role, 
-            status: user.status 
+            role: user.role,
+            status: user.status
         });
         setShowModal(true);
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        
+        setSubmitError('');
+        setIsSubmitting(true);
+
         // Generate initials for avatar if no image (simplified)
         const initials = formData.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 
-        if (isEditing && editingId) {
-            updateUser(editingId, {
-                name: formData.name,
-                email: formData.email,
-                role: formData.role as User['role'],
-                status: formData.status as User['status']
-            });
-        } else {
-            addUser({
-                name: formData.name,
-                email: formData.email,
-                password: formData.password,
-                role: formData.role as User['role'],
-                status: formData.status as User['status'],
-                avatar: initials // Default to initials
-            });
+        try {
+            if (isEditing && editingId) {
+                updateUser(editingId, {
+                    name: formData.name,
+                    email: formData.email,
+                    role: formData.role as User['role'],
+                    status: formData.status as User['status']
+                });
+            } else {
+                // Create auth user in Supabase
+                const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+                    email: formData.email,
+                    password: formData.password,
+                    email_confirm: true,
+                    user_metadata: {
+                        name: formData.name,
+                        role: formData.role
+                    }
+                });
+
+                if (authError) {
+                    setSubmitError(`Erro ao criar usuário: ${authError.message}`);
+                    setIsSubmitting(false);
+                    return;
+                }
+
+                if (!authData.user) {
+                    setSubmitError('Erro ao criar usuário no sistema de autenticação');
+                    setIsSubmitting(false);
+                    return;
+                }
+
+                // Add user to profiles table
+                addUser({
+                    name: formData.name,
+                    email: formData.email,
+                    password: formData.password,
+                    role: formData.role as User['role'],
+                    status: formData.status as User['status'],
+                    avatar: initials // Default to initials
+                });
+            }
+            setShowModal(false);
+            setIsSubmitting(false);
+        } catch (err) {
+            setSubmitError('Erro inesperado ao criar usuário');
+            setIsSubmitting(false);
         }
-        setShowModal(false);
     };
 
     const handleDelete = (id: string) => {
@@ -99,7 +134,7 @@ export const UserManagement: React.FC = () => {
                     <h1 className="text-2xl font-bold text-[#111318] dark:text-white">Gestão de Usuários</h1>
                     <p className="text-sm text-slate-500">Gerencie as permissões e contas da sua equipe de recrutamento.</p>
                 </div>
-                <button 
+                <button
                     onClick={handleOpenAdd}
                     className="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-lg font-bold flex items-center gap-2 shadow-lg shadow-primary/20 transition-all"
                 >
@@ -114,16 +149,16 @@ export const UserManagement: React.FC = () => {
                 <div className="bg-white dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-800 mb-6 flex flex-wrap gap-4 items-center shadow-sm">
                     <div className="relative flex-1 min-w-[300px]">
                         <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
-                        <input 
-                            type="text" 
-                            className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-lg focus:ring-2 focus:ring-primary/50 text-sm dark:text-white placeholder:text-slate-400" 
-                            placeholder="Buscar por nome, cargo ou e-mail..." 
+                        <input
+                            type="text"
+                            className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-lg focus:ring-2 focus:ring-primary/50 text-sm dark:text-white placeholder:text-slate-400"
+                            placeholder="Buscar por nome, cargo ou e-mail..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
                     <div className="flex gap-2">
-                        <select 
+                        <select
                             className="bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-2 focus:ring-primary/50 cursor-pointer dark:text-white"
                             value={roleFilter}
                             onChange={(e) => setRoleFilter(e.target.value)}
@@ -133,7 +168,7 @@ export const UserManagement: React.FC = () => {
                             <option value="Senior Recruiter">Senior Recruiter</option>
                             <option value="Junior Recruiter">Junior Recruiter</option>
                         </select>
-                        <select 
+                        <select
                             className="bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-sm px-4 py-2 focus:ring-2 focus:ring-primary/50 cursor-pointer dark:text-white"
                             value={statusFilter}
                             onChange={(e) => setStatusFilter(e.target.value)}
@@ -180,19 +215,16 @@ export const UserManagement: React.FC = () => {
                                         </td>
                                         <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{user.email}</td>
                                         <td className="px-6 py-4">
-                                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                                user.role === 'Admin' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
-                                            }`}>
+                                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${user.role === 'Admin' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
+                                                }`}>
                                                 {user.role}
                                             </span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <span className={`flex items-center gap-1.5 text-xs font-bold ${
-                                                user.status === 'Ativo' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'
-                                            }`}>
-                                                <span className={`w-2 h-2 rounded-full ${
-                                                    user.status === 'Ativo' ? 'bg-emerald-500' : 'bg-slate-400'
-                                                }`}></span>
+                                            <span className={`flex items-center gap-1.5 text-xs font-bold ${user.status === 'Ativo' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'
+                                                }`}>
+                                                <span className={`w-2 h-2 rounded-full ${user.status === 'Ativo' ? 'bg-emerald-500' : 'bg-slate-400'
+                                                    }`}></span>
                                                 {user.status}
                                             </span>
                                         </td>
@@ -225,47 +257,58 @@ export const UserManagement: React.FC = () => {
                             </button>
                         </div>
                         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+                            {/* Error Message */}
+                            {submitError && (
+                                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-red-600 dark:text-red-400 text-lg">error</span>
+                                    <p className="text-red-600 dark:text-red-400 text-sm font-medium">{submitError}</p>
+                                </div>
+                            )}
+
                             <label className="flex flex-col gap-1.5">
                                 <span className="text-sm font-bold text-[#111318] dark:text-gray-200">Nome Completo</span>
-                                <input 
+                                <input
                                     required
-                                    type="text" 
+                                    type="text"
                                     className="form-input rounded-lg border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm h-10 px-3 dark:text-white"
                                     value={formData.name}
-                                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                                    disabled={isSubmitting}
                                 />
                             </label>
                             <label className="flex flex-col gap-1.5">
                                 <span className="text-sm font-bold text-[#111318] dark:text-gray-200">E-mail</span>
-                                <input 
+                                <input
                                     required
-                                    type="email" 
+                                    type="email"
                                     className="form-input rounded-lg border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm h-10 px-3 dark:text-white"
                                     value={formData.email}
-                                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                    disabled={isSubmitting}
                                 />
                             </label>
-                            
+
                             {!isEditing && (
                                 <label className="flex flex-col gap-1.5">
                                     <span className="text-sm font-bold text-[#111318] dark:text-gray-200">Senha Provisória</span>
-                                    <input 
+                                    <input
                                         required
-                                        type="password" 
+                                        type="password"
                                         className="form-input rounded-lg border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm h-10 px-3 dark:text-white"
                                         value={formData.password}
-                                        onChange={(e) => setFormData({...formData, password: e.target.value})}
+                                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                                         placeholder="••••••••"
+                                        disabled={isSubmitting}
                                     />
                                 </label>
                             )}
 
                             <label className="flex flex-col gap-1.5">
                                 <span className="text-sm font-bold text-[#111318] dark:text-gray-200">Cargo</span>
-                                <select 
+                                <select
                                     className="form-select rounded-lg border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm h-10 px-3 dark:text-white"
                                     value={formData.role}
-                                    onChange={(e) => setFormData({...formData, role: e.target.value})}
+                                    onChange={(e) => setFormData({ ...formData, role: e.target.value })}
                                 >
                                     <option value="Admin">Admin</option>
                                     <option value="Senior Recruiter">Senior Recruiter</option>
@@ -276,19 +319,39 @@ export const UserManagement: React.FC = () => {
                                 <span className="text-sm font-bold text-[#111318] dark:text-gray-200">Status</span>
                                 <div className="flex gap-4 pt-1">
                                     <label className="flex items-center gap-2 cursor-pointer">
-                                        <input type="radio" name="status" value="Ativo" checked={formData.status === 'Ativo'} onChange={() => setFormData({...formData, status: 'Ativo'})} className="text-primary focus:ring-primary" />
+                                        <input type="radio" name="status" value="Ativo" checked={formData.status === 'Ativo'} onChange={() => setFormData({ ...formData, status: 'Ativo' })} className="text-primary focus:ring-primary" />
                                         <span className="text-sm dark:text-gray-300">Ativo</span>
                                     </label>
                                     <label className="flex items-center gap-2 cursor-pointer">
-                                        <input type="radio" name="status" value="Inativo" checked={formData.status === 'Inativo'} onChange={() => setFormData({...formData, status: 'Inativo'})} className="text-primary focus:ring-primary" />
+                                        <input type="radio" name="status" value="Inativo" checked={formData.status === 'Inativo'} onChange={() => setFormData({ ...formData, status: 'Inativo' })} className="text-primary focus:ring-primary" />
                                         <span className="text-sm dark:text-gray-300">Inativo</span>
                                     </label>
                                 </div>
                             </label>
 
                             <div className="flex justify-end gap-3 mt-4">
-                                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 text-sm font-bold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">Cancelar</button>
-                                <button type="submit" className="px-6 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90">Salvar</button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowModal(false)}
+                                    className="px-4 py-2 text-sm font-bold text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                                    disabled={isSubmitting}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSubmitting}
+                                    className="px-6 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                                >
+                                    {isSubmitting ? (
+                                        <>
+                                            <span className="material-symbols-outlined text-lg animate-spin">progress_activity</span>
+                                            <span>Criando...</span>
+                                        </>
+                                    ) : (
+                                        <span>Salvar</span>
+                                    )}
+                                </button>
                             </div>
                         </form>
                     </div>
