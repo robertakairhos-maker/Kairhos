@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { supabase } from './supabase';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { Pipeline } from './pages/Pipeline';
@@ -13,43 +14,71 @@ import { AppProvider } from './context/AppContext';
 
 const AppContent: React.FC = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Check active session on mount
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setIsAuthenticated(!!session);
+      setLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsAuthenticated(!!session);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
 
   const handleLogin = () => {
     setIsAuthenticated(true);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     setIsAuthenticated(false);
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
+        <div className="flex flex-col items-center gap-4">
+          <span className="material-symbols-outlined text-primary text-6xl animate-spin">progress_activity</span>
+          <p className="text-slate-600 dark:text-slate-400 font-medium">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <Routes>
-      <Route 
-        path="/login" 
+      <Route
+        path="/login"
         element={
           !isAuthenticated ? (
             <Login onLogin={handleLogin} />
           ) : (
             <Navigate to="/dashboard" replace />
           )
-        } 
+        }
       />
-      
-      <Route 
-        path="/" 
+
+      <Route
+        path="/"
         element={
           isAuthenticated ? (
             <Layout onLogout={handleLogout}>
-                <Navigate to="/dashboard" replace />
+              <Navigate to="/dashboard" replace />
             </Layout>
           ) : (
             <Navigate to="/login" replace />
           )
-        } 
+        }
       />
 
-      <Route 
-        path="/dashboard" 
+      <Route
+        path="/dashboard"
         element={
           isAuthenticated ? (
             <Layout onLogout={handleLogout}>
@@ -58,11 +87,11 @@ const AppContent: React.FC = () => {
           ) : (
             <Navigate to="/login" replace />
           )
-        } 
+        }
       />
 
-      <Route 
-        path="/pipeline" 
+      <Route
+        path="/pipeline"
         element={
           isAuthenticated ? (
             <Layout onLogout={handleLogout}>
@@ -71,11 +100,11 @@ const AppContent: React.FC = () => {
           ) : (
             <Navigate to="/login" replace />
           )
-        } 
+        }
       />
 
-      <Route 
-        path="/jobs/new" 
+      <Route
+        path="/jobs/new"
         element={
           isAuthenticated ? (
             <Layout onLogout={handleLogout}>
@@ -84,11 +113,11 @@ const AppContent: React.FC = () => {
           ) : (
             <Navigate to="/login" replace />
           )
-        } 
+        }
       />
 
-        <Route 
-        path="/jobs/:id" 
+      <Route
+        path="/jobs/:id"
         element={
           isAuthenticated ? (
             <Layout onLogout={handleLogout}>
@@ -97,11 +126,11 @@ const AppContent: React.FC = () => {
           ) : (
             <Navigate to="/login" replace />
           )
-        } 
+        }
       />
 
-      <Route 
-        path="/users" 
+      <Route
+        path="/users"
         element={
           isAuthenticated ? (
             <Layout onLogout={handleLogout}>
@@ -110,11 +139,11 @@ const AppContent: React.FC = () => {
           ) : (
             <Navigate to="/login" replace />
           )
-        } 
+        }
       />
 
-      <Route 
-        path="/candidates" 
+      <Route
+        path="/candidates"
         element={
           isAuthenticated ? (
             <Layout onLogout={handleLogout}>
@@ -123,11 +152,11 @@ const AppContent: React.FC = () => {
           ) : (
             <Navigate to="/login" replace />
           )
-        } 
+        }
       />
-      
-      <Route 
-        path="/settings" 
+
+      <Route
+        path="/settings"
         element={
           isAuthenticated ? (
             <Layout onLogout={handleLogout}>
@@ -136,7 +165,7 @@ const AppContent: React.FC = () => {
           ) : (
             <Navigate to="/login" replace />
           )
-        } 
+        }
       />
 
       <Route path="*" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} />

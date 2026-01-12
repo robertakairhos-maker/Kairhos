@@ -1,13 +1,45 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { supabase } from '../supabase';
 
 interface LoginProps {
     onLogin: () => void;
 }
 
 export const Login: React.FC<LoginProps> = ({ onLogin }) => {
-    const handleSubmit = (e: React.FormEvent) => {
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [error, setError] = useState('');
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        onLogin();
+        setError('');
+        setLoading(true);
+
+        try {
+            const { data, error: signInError } = await supabase.auth.signInWithPassword({
+                email,
+                password,
+            });
+
+            if (signInError) {
+                if (signInError.message.includes('Invalid login credentials')) {
+                    setError('Email ou senha incorretos');
+                } else {
+                    setError('Erro ao fazer login. Tente novamente.');
+                }
+                setLoading(false);
+                return;
+            }
+
+            if (data.user) {
+                onLogin();
+            }
+        } catch (err) {
+            setError('Erro ao conectar com o servidor');
+            setLoading(false);
+        }
     };
 
     return (
@@ -31,24 +63,40 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                     {/* Header Image within Card */}
                     <div className="@container">
                         <div className="p-2">
-                            <div className="w-full bg-center bg-no-repeat bg-cover flex flex-col justify-end overflow-hidden bg-primary/10 rounded-lg min-h-[140px]" 
-                                 style={{ backgroundImage: 'linear-gradient(135deg, #135bec 0%, #0a2e7a 100%)' }}>
+                            <div className="w-full bg-center bg-no-repeat bg-cover flex flex-col justify-end overflow-hidden bg-primary/10 rounded-lg min-h-[140px]"
+                                style={{ backgroundImage: 'linear-gradient(135deg, #135bec 0%, #0a2e7a 100%)' }}>
                                 <div className="p-4 bg-gradient-to-t from-black/40 to-transparent">
                                     <p className="text-white text-xs font-medium uppercase tracking-widest opacity-80">Portal do Recrutador</p>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    
+
                     <div className="p-6 pt-2">
                         <form onSubmit={handleSubmit} className="space-y-4">
+                            {/* Error Message */}
+                            {error && (
+                                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 flex items-center gap-2">
+                                    <span className="material-symbols-outlined text-red-600 dark:text-red-400 text-lg">error</span>
+                                    <p className="text-red-600 dark:text-red-400 text-sm font-medium">{error}</p>
+                                </div>
+                            )}
+
                             {/* Email Field */}
                             <div className="flex flex-col gap-2">
                                 <label className="flex flex-col">
                                     <p className="text-[#111318] dark:text-slate-200 text-sm font-semibold leading-normal pb-2">E-mail</p>
                                     <div className="relative">
                                         <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#616f89] text-[20px]">mail</span>
-                                        <input className="form-input flex w-full rounded-lg text-[#111318] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/20 border border-[#dbdfe6] dark:border-slate-700 bg-white dark:bg-slate-800 focus:border-primary h-12 placeholder:text-[#616f89] pl-11 pr-4 text-sm font-normal transition-all" placeholder="admin@agency.com" required type="email" />
+                                        <input
+                                            className="form-input flex w-full rounded-lg text-[#111318] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/20 border border-[#dbdfe6] dark:border-slate-700 bg-white dark:bg-slate-800 focus:border-primary h-12 placeholder:text-[#616f89] pl-11 pr-4 text-sm font-normal transition-all"
+                                            placeholder="roberta@kairhos.com"
+                                            required
+                                            type="email"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                            disabled={loading}
+                                        />
                                     </div>
                                 </label>
                             </div>
@@ -60,10 +108,25 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
                                     <div className="flex w-full items-stretch rounded-lg group">
                                         <div className="relative flex-1">
                                             <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-[#616f89] text-[20px]">lock</span>
-                                            <input className="form-input flex w-full rounded-l-lg text-[#111318] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/20 border border-[#dbdfe6] dark:border-slate-700 bg-white dark:bg-slate-800 focus:border-primary h-12 placeholder:text-[#616f89] pl-11 pr-2 text-sm font-normal border-r-0 transition-all" placeholder="••••••••" required type="password" />
+                                            <input
+                                                className="form-input flex w-full rounded-l-lg text-[#111318] dark:text-white focus:outline-0 focus:ring-2 focus:ring-primary/20 border border-[#dbdfe6] dark:border-slate-700 bg-white dark:bg-slate-800 focus:border-primary h-12 placeholder:text-[#616f89] pl-11 pr-2 text-sm font-normal border-r-0 transition-all"
+                                                placeholder="••••••••"
+                                                required
+                                                type={showPassword ? "text" : "password"}
+                                                value={password}
+                                                onChange={(e) => setPassword(e.target.value)}
+                                                disabled={loading}
+                                            />
                                         </div>
-                                        <button type="button" className="text-[#616f89] flex border border-[#dbdfe6] dark:border-slate-700 bg-white dark:bg-slate-800 items-center justify-center px-4 rounded-r-lg border-l-0 hover:text-primary transition-colors">
-                                            <span className="material-symbols-outlined text-[20px]">visibility</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPassword(!showPassword)}
+                                            className="text-[#616f89] flex border border-[#dbdfe6] dark:border-slate-700 bg-white dark:bg-slate-800 items-center justify-center px-4 rounded-r-lg border-l-0 hover:text-primary transition-colors"
+                                            disabled={loading}
+                                        >
+                                            <span className="material-symbols-outlined text-[20px]">
+                                                {showPassword ? 'visibility_off' : 'visibility'}
+                                            </span>
                                         </button>
                                     </div>
                                 </label>
@@ -78,9 +141,22 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
                             {/* Submit Button */}
                             <div className="pt-4 pb-2">
-                                <button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-6 rounded-lg shadow-md shadow-primary/30 flex items-center justify-center gap-2 transition-all active:scale-[0.98]">
-                                    <span>Entrar no Sistema</span>
-                                    <span className="material-symbols-outlined text-[20px]">login</span>
+                                <button
+                                    type="submit"
+                                    disabled={loading}
+                                    className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-6 rounded-lg shadow-md shadow-primary/30 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                    {loading ? (
+                                        <>
+                                            <span className="material-symbols-outlined text-[20px] animate-spin">progress_activity</span>
+                                            <span>Entrando...</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <span>Entrar no Sistema</span>
+                                            <span className="material-symbols-outlined text-[20px]">login</span>
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         </form>
