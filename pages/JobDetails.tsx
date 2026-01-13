@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { KanbanColumnData, Candidate, Note } from '../types';
 import { useApp } from '../context/AppContext';
+import { supabase } from '../supabase';
 
 const INITIAL_COLUMNS: KanbanColumnData[] = [
     { id: 'Triagem', title: 'Triagem', count: 0, color: '' },
@@ -9,6 +10,7 @@ const INITIAL_COLUMNS: KanbanColumnData[] = [
     { id: 'Entrevista Gestor', title: 'Entrevista Gestor', count: 0, color: '' },
     { id: 'Entregue', title: 'Entregue', count: 0, color: '' },
     { id: 'Retrabalho', title: 'Retrabalho', count: 0, color: '' },
+    { id: 'Reprovado', title: 'Reprovado', count: 0, color: '' },
 ];
 
 export const JobDetails: React.FC = () => {
@@ -37,6 +39,7 @@ export const JobDetails: React.FC = () => {
 
     const [showPreviewModal, setShowPreviewModal] = useState(false);
     const [showNotesModal, setShowNotesModal] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
 
     // Form State
     const [candidateForm, setCandidateForm] = useState({
@@ -96,7 +99,20 @@ export const JobDetails: React.FC = () => {
         e.preventDefault();
         const candidateId = e.dataTransfer.getData('text/plain');
         if (candidateId) {
+            let newStatus: Candidate['status'] | undefined;
+            if (targetStageId === 'Reprovado') {
+                newStatus = 'Rejeitado';
+            }
+
+            // Perform the update
             updateCandidateStage(candidateId, targetStageId as Candidate['stage']);
+
+            // If status changed to rejected, also update the status field if needed (wrapper for your context update might be needed if updateCandidateStage doesn't handle status)
+            // Assuming we also want to update the candidate status property explicitly:
+            if (newStatus) {
+                updateCandidate(candidateId, { status: newStatus });
+            }
+
             const currentCandidate = jobCandidates.find(c => c.id === candidateId);
             if (currentCandidate && currentCandidate.stage !== targetStageId) {
                 setShowToast(true);
@@ -164,16 +180,39 @@ export const JobDetails: React.FC = () => {
         setShowNotesModal(true);
     };
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
-        if (file) {
-            // Mock Upload: Create a fake local URL
-            const fakeUrl = URL.createObjectURL(file);
+        if (!file) return;
+
+        try {
+            setIsUploading(true);
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+            const filePath = `${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('resumes')
+                .upload(filePath, file);
+
+            if (uploadError) {
+                throw uploadError;
+            }
+
+            const { data } = supabase.storage
+                .from('resumes')
+                .getPublicUrl(filePath);
+
             setCandidateForm(prev => ({
                 ...prev,
                 resumeName: file.name,
-                resumeUrl: fakeUrl
+                resumeUrl: data.publicUrl
             }));
+
+        } catch (error) {
+            console.error('Error uploading resume:', error);
+            alert('Erro ao fazer upload do currículo. Verifique se o bucket "resumes" existe e é público.');
+        } finally {
+            setIsUploading(false);
         }
     };
 
@@ -600,6 +639,7 @@ export const JobDetails: React.FC = () => {
                                                 <span className="truncate">{candidateForm.resumeName}</span>
                                             </div>
                                         )}
+                                        {isUploading && <span className="text-xs text-gray-500 animate-pulse">Enviando...</span>}
                                     </div>
                                 </div>
 
@@ -617,7 +657,13 @@ export const JobDetails: React.FC = () => {
 
                                 <div className="flex justify-end gap-3 mt-4">
                                     <button type="button" onClick={() => setShowCandidateModal(false)} className="px-4 py-2 text-sm font-bold text-gray-500 hover:text-gray-700 dark:text-gray-400">Cancelar</button>
-                                    <button type="submit" className="px-6 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90">Salvar Candidato</button>
+                                    <button
+                                        type="submit"
+                                        disabled={isUploading}
+                                        className={`px-6 py-2 bg-primary text-white rounded-lg text-sm font-bold hover:bg-primary/90 ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                    >
+                                        {isUploading ? 'Enviando...' : 'Salvar Candidato'}
+                                    </button>
                                 </div>
                             </form>
                         </div>

@@ -29,8 +29,8 @@ export interface Client {
 export interface Job {
     id: string;
     title: string;
-    company: string; 
-    stage: 'Vagas Abertas' | 'Em Triagem' | 'Primeira Entrevista' | 'Entrevista Gestor' | 'Entregue' | 'Retrabalho';
+    company: string;
+    stage: 'Vagas Abertas' | 'Em Triagem' | 'Primeira Entrevista' | 'Entrevista Gestor' | 'Entregue' | 'Retrabalho' | 'Vaga paralisada' | 'Substituição';
     priority?: 'Alta Prioridade' | 'Crítico';
     tag?: { label: string; color: string };
     progress: number;
@@ -64,7 +64,7 @@ export interface Candidate {
     email: string;
     phone: string;
     status: 'Triagem' | 'Entrevista' | 'Aprovado' | 'Rejeitado';
-    stage: 'Triagem' | 'Primeira Entrevista' | 'Entrevista Gestor' | 'Entregue' | 'Retrabalho';
+    stage: 'Triagem' | 'Primeira Entrevista' | 'Entrevista Gestor' | 'Entregue' | 'Retrabalho' | 'Reprovado';
     avatarColor: string;
     textColor: string;
     badgeColor: string;
@@ -73,8 +73,8 @@ export interface Candidate {
     resumeUrl?: string;
     resumeName?: string;
     notes?: Note[];
-    skills?: string[]; 
-    source?: string; 
+    skills?: string[];
+    source?: string;
     location?: string; // e.g. "São Paulo, SP"
     currentRole?: string; // e.g. "Frontend Developer"
     seniority?: 'Júnior' | 'Pleno' | 'Sênior' | 'Especialista' | 'Gerente' | 'Estagiário';
