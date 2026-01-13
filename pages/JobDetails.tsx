@@ -6,6 +6,7 @@ import { supabase } from '../supabase';
 
 const INITIAL_COLUMNS: KanbanColumnData[] = [
     { id: 'Triagem', title: 'Triagem', count: 0, color: '' },
+    { id: 'Testes', title: 'Fase de Testes', count: 0, color: '' },
     { id: 'Primeira Entrevista', title: 'Primeira Entrevista', count: 0, color: '' },
     { id: 'Entrevista Gestor', title: 'Entrevista Gestor', count: 0, color: '' },
     { id: 'Entregue', title: 'Entregue', count: 0, color: '' },
@@ -22,6 +23,15 @@ export const JobDetails: React.FC = () => {
     const jobCandidates = candidates.filter(c => c.jobId === id);
 
     const [columns, setColumns] = useState(INITIAL_COLUMNS);
+
+    // Force update columns if new ones are added in code (Migration for existing state)
+    useEffect(() => {
+        const missingColumns = INITIAL_COLUMNS.filter(ic => !columns.find(c => c.id === ic.id));
+        if (missingColumns.length > 0) {
+            setColumns(prev => [...prev, ...missingColumns]);
+        }
+    }, [columns]);
+
     const [showToast, setShowToast] = useState(false);
     const [draggedCandidateId, setDraggedCandidateId] = useState<string | null>(null);
     const [activeMenu, setActiveMenu] = useState<string | null>(null);

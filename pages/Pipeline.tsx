@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Job, KanbanColumnData } from '../types';
 import { useApp } from '../context/AppContext';
@@ -23,6 +23,14 @@ export const Pipeline: React.FC = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [columns, setColumns] = useState<KanbanColumnData[]>(INITIAL_COLUMNS);
     const [showNotifications, setShowNotifications] = useState(false);
+
+    // Force update columns if new ones are added in code (Migration for existing state)
+    useEffect(() => {
+        const missingColumns = INITIAL_COLUMNS.filter(ic => !columns.find(c => c.id === ic.id));
+        if (missingColumns.length > 0) {
+            setColumns(prev => [...prev, ...missingColumns]);
+        }
+    }, [columns]);
 
     // Dnd States
     const [draggedJobId, setDraggedJobId] = useState<string | null>(null);

@@ -64,7 +64,7 @@ export interface Candidate {
     email: string;
     phone: string;
     status: 'Triagem' | 'Entrevista' | 'Aprovado' | 'Rejeitado';
-    stage: 'Triagem' | 'Primeira Entrevista' | 'Entrevista Gestor' | 'Entregue' | 'Retrabalho' | 'Reprovado';
+    stage: 'Triagem' | 'Testes' | 'Primeira Entrevista' | 'Entrevista Gestor' | 'Entregue' | 'Retrabalho' | 'Reprovado';
     avatarColor: string;
     textColor: string;
     badgeColor: string;
