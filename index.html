@@ -47,10 +47,13 @@
           -ms-overflow-style: none;  /* IE and Edge */
           scrollbar-width: none;  /* Firefox */
       }
-      .custom-scrollbar::-webkit-scrollbar { height: 8px; width: 8px; }
-      .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-      .custom-scrollbar::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
-      .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #374151; }
+      .custom-scrollbar::-webkit-scrollbar { height: 12px; width: 12px; }
+      .custom-scrollbar::-webkit-scrollbar-track { background: rgba(0,0,0,0.05); border-radius: 10px; }
+      .custom-scrollbar::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 10px; border: 3px solid transparent; background-clip: content-box; }
+      .dark .custom-scrollbar::-webkit-scrollbar-track { background: rgba(255,255,255,0.05); }
+      .dark .custom-scrollbar::-webkit-scrollbar-thumb { background: #475569; }
+      .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #64748b; background-clip: content-box; }
+      .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #64748b; }
     </style>
   <script type="importmap">
 {

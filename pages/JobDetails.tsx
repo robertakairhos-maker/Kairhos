@@ -554,7 +554,7 @@ export const JobDetails: React.FC = () => {
                     onPointerUp={handleBoardPointerUp}
                     onPointerCancel={stopDragging}
                     className={`w-full overflow-x-auto pb-6 custom-scrollbar touch-pan-x touch-pan-y ${isDragScroll && dragDistance > 10 ? 'cursor-grabbing select-none' : 'cursor-default'}`}
-                    style={{ scrollBehavior: isDragScroll ? 'auto' : 'smooth' }}
+                    style={{ scrollBehavior: isDragScroll ? 'auto' : 'smooth', minHeight: 'min-content' }}
                 >
                     <div className="flex gap-4 min-w-full px-1">
                         {columns.map(col => (

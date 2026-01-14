@@ -267,7 +267,7 @@ export const Pipeline: React.FC = () => {
                         onPointerUp={handleBoardPointerUp}
                         onPointerCancel={stopDragging}
                         className={`flex-1 overflow-x-auto custom-scrollbar px-6 pb-8 touch-pan-x touch-pan-y ${isDragScroll && dragDistance > 10 ? 'cursor-grabbing select-none' : 'cursor-default'}`}
-                        style={{ scrollBehavior: isDragScroll ? 'auto' : 'smooth' }}
+                        style={{ scrollBehavior: isDragScroll ? 'auto' : 'smooth', minHeight: 'min-content' }}
                     >
                         <div className="flex gap-6 h-full items-start">
                             {columns.map((col) => (
