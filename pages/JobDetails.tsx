@@ -44,37 +44,50 @@ export const JobDetails: React.FC = () => {
     const [isDragScroll, setIsDragScroll] = useState(false);
     const [startX, setStartX] = useState(0);
     const [scrollLeft, setScrollLeft] = useState(0);
+    const [dragDistance, setDragDistance] = useState(0);
 
     const handleBoardPointerDown = (e: React.PointerEvent) => {
-        // Only trigger for primary pointer (left click or touch)
+        // Only use custom logic for mouse. Touch will use native horizontal scrolling.
+        if (e.pointerType !== 'mouse') return;
         if (!e.isPrimary) return;
 
-        // Prevent scrolling if clicking on interaction elements
         const target = e.target as HTMLElement;
         if (target.closest('.cursor-grab') || target.closest('button') || target.closest('input') || target.closest('a')) return;
 
         if (!boardRef.current) return;
 
         setIsDragScroll(true);
-        // Set capture to track movement even if pointer leaves element
-        boardRef.current.setPointerCapture(e.pointerId);
-
         setStartX(e.pageX - boardRef.current.offsetLeft);
         setScrollLeft(boardRef.current.scrollLeft);
+        setDragDistance(0);
     };
 
     const handleBoardPointerMove = (e: React.PointerEvent) => {
         if (!isDragScroll || !boardRef.current) return;
 
         const x = e.pageX - boardRef.current.offsetLeft;
-        const walk = (x - startX) * 1.5; // Adjusted sensitivity
-        boardRef.current.scrollLeft = scrollLeft - walk;
+        const walk = (x - startX) * 1.5;
+
+        // Threshold check to avoid intercepting clicks
+        const currentDistance = Math.abs(x - startX);
+        if (!boardRef.current.hasPointerCapture(e.pointerId) && currentDistance > 10) {
+            boardRef.current.setPointerCapture(e.pointerId);
+        }
+
+        if (boardRef.current.hasPointerCapture(e.pointerId)) {
+            boardRef.current.scrollLeft = scrollLeft - walk;
+            setDragDistance(currentDistance);
+        }
     };
 
     const handleBoardPointerUp = (e: React.PointerEvent) => {
-        if (!isDragScroll || !boardRef.current) return;
+        if (!boardRef.current) return;
+
+        if (boardRef.current.hasPointerCapture(e.pointerId)) {
+            boardRef.current.releasePointerCapture(e.pointerId);
+        }
+
         setIsDragScroll(false);
-        boardRef.current.releasePointerCapture(e.pointerId);
     };
 
     const stopDragging = () => {
@@ -540,7 +553,7 @@ export const JobDetails: React.FC = () => {
                     onPointerMove={handleBoardPointerMove}
                     onPointerUp={handleBoardPointerUp}
                     onPointerCancel={stopDragging}
-                    className={`w-full overflow-x-auto pb-6 custom-scrollbar touch-pan-y ${isDragScroll ? 'cursor-grabbing select-none' : 'cursor-default'}`}
+                    className={`w-full overflow-x-auto pb-6 custom-scrollbar touch-pan-x touch-pan-y ${isDragScroll && dragDistance > 10 ? 'cursor-grabbing select-none' : 'cursor-default'}`}
                     style={{ scrollBehavior: isDragScroll ? 'auto' : 'smooth' }}
                 >
                     <div className="flex gap-4 min-w-full px-1">
