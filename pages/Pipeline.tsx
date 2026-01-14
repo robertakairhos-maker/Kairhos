@@ -103,6 +103,14 @@ export const Pipeline: React.FC = () => {
         setIsDragScroll(false);
     };
 
+    const handleWheel = (e: React.WheelEvent) => {
+        if (!boardRef.current) return;
+        // If it's a vertical scroll, translate it to horizontal
+        if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+            boardRef.current.scrollLeft += e.deltaY;
+        }
+    };
+
     const stopDragging = () => {
         setIsDragScroll(false);
     };
@@ -266,7 +274,8 @@ export const Pipeline: React.FC = () => {
                         onPointerMove={handleBoardPointerMove}
                         onPointerUp={handleBoardPointerUp}
                         onPointerCancel={stopDragging}
-                        className={`flex-1 overflow-x-auto custom-scrollbar px-6 pb-8 touch-pan-x touch-pan-y ${isDragScroll && dragDistance > 10 ? 'cursor-grabbing select-none' : 'cursor-default'}`}
+                        onWheel={handleWheel}
+                        className={`flex-1 overflow-x-scroll custom-scrollbar px-6 pb-8 touch-pan-x touch-pan-y ${isDragScroll && dragDistance > 10 ? 'cursor-grabbing select-none' : 'cursor-default'}`}
                         style={{ scrollBehavior: isDragScroll ? 'auto' : 'smooth', minHeight: 'min-content' }}
                     >
                         <div className="flex gap-6 h-full items-start">

@@ -90,6 +90,13 @@ export const JobDetails: React.FC = () => {
         setIsDragScroll(false);
     };
 
+    const handleWheel = (e: React.WheelEvent) => {
+        if (!boardRef.current) return;
+        if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+            boardRef.current.scrollLeft += e.deltaY;
+        }
+    };
+
     const stopDragging = () => {
         setIsDragScroll(false);
     };
@@ -553,7 +560,8 @@ export const JobDetails: React.FC = () => {
                     onPointerMove={handleBoardPointerMove}
                     onPointerUp={handleBoardPointerUp}
                     onPointerCancel={stopDragging}
-                    className={`w-full overflow-x-auto pb-6 custom-scrollbar touch-pan-x touch-pan-y ${isDragScroll && dragDistance > 10 ? 'cursor-grabbing select-none' : 'cursor-default'}`}
+                    onWheel={handleWheel}
+                    className={`w-full overflow-x-scroll pb-6 custom-scrollbar touch-pan-x touch-pan-y ${isDragScroll && dragDistance > 10 ? 'cursor-grabbing select-none' : 'cursor-default'}`}
                     style={{ scrollBehavior: isDragScroll ? 'auto' : 'smooth', minHeight: 'min-content' }}
                 >
                     <div className="flex gap-4 min-w-full px-1">

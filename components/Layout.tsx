@@ -72,8 +72,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, onLogout }) => {
                 to={link.path}
                 onClick={() => setShowNotifications(false)}
                 className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${link.path === '/jobs/new'
-                    ? (location.pathname === '/jobs/new' ? "bg-primary/10 text-primary font-semibold" : "text-[#616f89] hover:bg-gray-100 dark:hover:bg-gray-800 font-medium")
-                    : isActive(link.path)
+                  ? (location.pathname === '/jobs/new' ? "bg-primary/10 text-primary font-semibold" : "text-[#616f89] hover:bg-gray-100 dark:hover:bg-gray-800 font-medium")
+                  : isActive(link.path)
                   }`}
               >
                 <span className="material-symbols-outlined">{link.icon}</span>
@@ -103,8 +103,8 @@ export const Layout: React.FC<LayoutProps> = ({ children, onLogout }) => {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col relative w-full lg:w-auto">
-        <main className="flex-1 overflow-y-auto h-full pt-16 lg:pt-0">
+      <div className="flex-1 flex flex-col relative w-full lg:w-auto h-full overflow-hidden">
+        <main className="flex-1 h-full pt-16 lg:pt-0 overflow-hidden relative flex flex-col">
           {children}
         </main>
       </div>
