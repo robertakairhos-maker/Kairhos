@@ -9,7 +9,7 @@ export const Dashboard: React.FC = () => {
     // Metrics Calculations
     const totalJobs = jobs.length;
     const totalCandidates = candidates.length;
-    const activeJobs = jobs.filter(j => j.stage !== 'Entregue' && j.stage !== 'Retrabalho').length;
+    const activeJobs = jobs.filter(j => j.stage !== 'Vaga fechada' && j.stage !== 'Vaga paralisada').length;
     const criticalJobs = jobs.filter(j => j.priority === 'Crítico').length;
     const closedJobs = totalJobs - activeJobs;
 
@@ -17,7 +17,7 @@ export const Dashboard: React.FC = () => {
 
     // Get jobs closing soon (sorted by days remaining)
     const urgentJobs = [...jobs]
-        .filter(j => j.daysRemaining !== undefined && j.daysRemaining <= 10 && j.stage !== 'Entregue')
+        .filter(j => j.daysRemaining !== undefined && j.daysRemaining <= 10 && j.stage !== 'Vaga fechada')
         .sort((a, b) => (a.daysRemaining || 0) - (b.daysRemaining || 0))
         .slice(0, 5);
 
@@ -26,7 +26,7 @@ export const Dashboard: React.FC = () => {
         'Vagas Abertas': jobs.filter(j => j.stage === 'Vagas Abertas').length,
         'Em Triagem': jobs.filter(j => j.stage === 'Em Triagem').length,
         'Entrevistas': jobs.filter(j => j.stage === 'Primeira Entrevista' || j.stage === 'Entrevista Gestor').length,
-        'Finalizado': jobs.filter(j => j.stage === 'Entregue').length
+        'Finalizado': jobs.filter(j => j.stage === 'Vaga fechada').length
     };
 
     return (
@@ -135,9 +135,9 @@ export const Dashboard: React.FC = () => {
                                             </td>
                                             <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-400">{job.company}</td>
                                             <td className="px-6 py-4">
-                                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap ${job.stage === 'Entregue' ? 'bg-green-100 text-green-700' :
-                                                        job.stage === 'Vagas Abertas' ? 'bg-blue-100 text-blue-700' :
-                                                            'bg-amber-100 text-amber-700'
+                                                <span className={`px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap ${job.stage === 'Vaga fechada' ? 'bg-green-100 text-green-700' :
+                                                    job.stage === 'Vagas Abertas' ? 'bg-blue-100 text-blue-700' :
+                                                        'bg-amber-100 text-amber-700'
                                                     }`}>
                                                     {job.stage}
                                                 </span>

@@ -8,10 +8,10 @@ const INITIAL_COLUMNS: KanbanColumnData[] = [
     { id: 'Em Triagem', title: 'Em Triagem', count: 0, color: 'bg-amber-400' },
     { id: 'Primeira Entrevista', title: 'Primeira Entrevista', count: 0, color: 'bg-indigo-400' },
     { id: 'Entrevista Gestor', title: 'Entrevista Gestor', count: 0, color: 'bg-purple-400' },
+    { id: 'Fase de teste', title: 'Fase de teste', count: 0, color: 'bg-orange-400' },
+    { id: 'Vaga fechada', title: 'Vaga fechada', count: 0, color: 'bg-green-400' },
     { id: 'Vaga paralisada', title: 'Vaga paralisada', count: 0, color: 'bg-gray-400' },
-    { id: 'Substituição', title: 'Substituição', count: 0, color: 'bg-cyan-400' },
-    { id: 'Entregue', title: 'Entregue', count: 0, color: 'bg-green-400' },
-    { id: 'Retrabalho', title: 'Retrabalho', count: 0, color: 'bg-red-400' },
+    { id: 'Vaga substituição', title: 'Vaga substituição', count: 0, color: 'bg-cyan-400' },
 ];
 
 export const Pipeline: React.FC = () => {
@@ -332,7 +332,7 @@ export const Pipeline: React.FC = () => {
                                     </div>
 
                                     <div className="flex flex-col gap-4 overflow-y-auto flex-1 pr-1 custom-scrollbar pb-4 min-h-[150px]">
-                                        {col.id === 'Retrabalho' && filteredJobs.filter(j => j.stage === col.id).length === 0 && (
+                                        {col.id === 'Vaga paralisada' && filteredJobs.filter(j => j.stage === col.id).length === 0 && (
                                             <div className="border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-xl h-24 flex items-center justify-center text-gray-400">
                                                 <span className="material-symbols-outlined text-3xl opacity-20">hourglass_empty</span>
                                             </div>

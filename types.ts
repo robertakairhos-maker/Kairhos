@@ -30,7 +30,7 @@ export interface Job {
     id: string;
     title: string;
     company: string;
-    stage: 'Vagas Abertas' | 'Em Triagem' | 'Primeira Entrevista' | 'Entrevista Gestor' | 'Vaga paralisada' | 'Substituição' | 'Entregue' | 'Retrabalho';
+    stage: 'Vagas Abertas' | 'Em Triagem' | 'Primeira Entrevista' | 'Entrevista Gestor' | 'Fase de teste' | 'Vaga fechada' | 'Vaga paralisada' | 'Vaga substituição';
     priority?: 'Alta Prioridade' | 'Crítico';
     tag?: { label: string; color: string };
     progress: number;
