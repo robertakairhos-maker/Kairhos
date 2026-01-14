@@ -17,10 +17,11 @@ const INITIAL_COLUMNS: KanbanColumnData[] = [
 export const JobDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { jobs, candidates, updateCandidateStage, addCandidate, updateCandidate, currentUser } = useApp();
+    const { jobs, candidates, updateCandidateStage, addCandidate, updateCandidate, trashCandidate, restoreCandidate, deleteCandidatePermanently, currentUser } = useApp();
 
     const job = jobs.find(j => j.id === id);
-    const jobCandidates = candidates.filter(c => c.jobId === id);
+    const jobCandidates = candidates.filter(c => c.jobId === id && !c.trashed);
+    const trashedCandidates = candidates.filter(c => c.jobId === id && c.trashed);
 
     const [columns, setColumns] = useState(INITIAL_COLUMNS);
 
@@ -44,6 +45,7 @@ export const JobDetails: React.FC = () => {
 
     // Modals
     const [showCandidateModal, setShowCandidateModal] = useState(false); // Used for Add & Edit
+    const [showTrashModal, setShowTrashModal] = useState(false);
     const [isEditing, setIsEditing] = useState(false);
     const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
 
@@ -437,6 +439,15 @@ export const JobDetails: React.FC = () => {
                             )}
                         </div>
 
+                        {/* Trash Button */}
+                        <button
+                            onClick={() => setShowTrashModal(true)}
+                            className="flex items-center gap-2 px-4 h-11 bg-white dark:bg-[#1a212d] border border-[#dbdfe6] dark:border-[#2a303c] rounded-lg text-sm font-bold hover:bg-red-50 dark:hover:bg-red-900/10 text-gray-600 dark:text-gray-300 hover:text-red-500 transition-all shadow-sm"
+                        >
+                            <span className="material-symbols-outlined text-lg">delete</span>
+                            Lixeira ({trashedCandidates.length})
+                        </button>
+
                         {/* Add Candidate Button */}
                         <button
                             onClick={openAddModal}
@@ -581,6 +592,9 @@ export const JobDetails: React.FC = () => {
                                                 </button>
                                                 <button onClick={() => handleDownloadResume(candidate)} className="flex-1 h-7 rounded-lg bg-background-light dark:bg-[#2a303c] flex items-center justify-center text-[#616f89] hover:text-primary transition-colors" title="Download CV">
                                                     <span className="material-symbols-outlined text-lg">download</span>
+                                                </button>
+                                                <button onClick={() => trashCandidate(candidate.id)} className="flex-1 h-7 rounded-lg bg-background-light dark:bg-[#2a303c] flex items-center justify-center text-[#616f89] hover:text-red-500 transition-colors" title="Mover para Lixeira">
+                                                    <span className="material-symbols-outlined text-lg">delete</span>
                                                 </button>
                                                 <button onClick={() => openNotesModal(candidate)} className="flex-1 h-7 rounded-lg bg-background-light dark:bg-[#2a303c] flex items-center justify-center text-[#616f89] hover:text-primary transition-colors relative" title="Observações">
                                                     <span className="material-symbols-outlined text-lg">chat_bubble</span>

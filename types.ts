@@ -78,6 +78,7 @@ export interface Candidate {
     location?: string; // e.g. "São Paulo, SP"
     currentRole?: string; // e.g. "Frontend Developer"
     seniority?: 'Júnior' | 'Pleno' | 'Sênior' | 'Especialista' | 'Gerente' | 'Estagiário';
+    trashed?: boolean;
 }
 
 export interface KanbanColumnData {

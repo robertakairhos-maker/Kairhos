@@ -16,6 +16,9 @@ interface AppContextType {
     addCandidate: (candidate: Omit<Candidate, 'id' | 'initials' | 'avatarColor' | 'textColor' | 'badgeColor' | 'badgeText' | 'notes'> & { notes?: Note[] }) => void;
     updateCandidateStage: (candidateId: string, newStage: Candidate['stage']) => void;
     updateCandidate: (candidateId: string, updates: Partial<Candidate>) => void;
+    trashCandidate: (candidateId: string) => void;
+    restoreCandidate: (candidateId: string) => void;
+    deleteCandidatePermanently: (candidateId: string) => void;
     // User Management
     addUser: (user: Omit<User, 'id'>) => void;
     updateUser: (userId: string, updates: Partial<User>) => void;
@@ -275,7 +278,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         avatarColor: 'bg-emerald-100 text-emerald-600', // Default
                         textColor: 'text-gray-700',
                         badgeColor: 'bg-gray-100',
-                        badgeText: c.candidate_stage
+                        badgeText: c.candidate_stage,
+                        trashed: c.trashed || false
                     })));
                 }
 
@@ -439,6 +443,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     };
 
+    const trashCandidate = async (candidateId: string) => {
+        const { error } = await supabase.from('candidates').update({ trashed: true }).eq('id', candidateId);
+        if (!error) {
+            setCandidates(prev => prev.map(c => c.id === candidateId ? { ...c, trashed: true } : c));
+            addNotification('Candidato movido para lixeira', '', 'success');
+        }
+    };
+
+    const restoreCandidate = async (candidateId: string) => {
+        const { error } = await supabase.from('candidates').update({ trashed: false }).eq('id', candidateId);
+        if (!error) {
+            setCandidates(prev => prev.map(c => c.id === candidateId ? { ...c, trashed: false } : c));
+            addNotification('Candidato restaurado', '', 'success');
+        }
+    };
+
+    const deleteCandidatePermanently = async (candidateId: string) => {
+        const { error } = await supabase.from('candidates').delete().eq('id', candidateId);
+        if (!error) {
+            setCandidates(prev => prev.filter(c => c.id !== candidateId));
+            addNotification('Candidato excluído permanentemente', '', 'warning');
+        }
+    };
+
     // User Operations
     const addUser = async (userData: Omit<User, 'id'> & { id?: string }) => {
         // Note: For real auth, use supabase.auth.signUp. This is for profile management.
@@ -565,6 +593,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             addCandidate,
             updateCandidateStage,
             updateCandidate,
+            trashCandidate,
+            restoreCandidate,
+            deleteCandidatePermanently,
             addUser,
             updateUser,
             deleteUser,
