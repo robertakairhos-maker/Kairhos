@@ -258,6 +258,7 @@ export const JobDetails: React.FC = () => {
 
     // --- Column Renaming ---
     const startEditing = (column: KanbanColumnData) => {
+        if (currentUser.role !== 'Admin') return;
         setEditingColumnId(column.id);
         setTempTitle(column.title);
         setActiveMenu(null);
@@ -270,6 +271,52 @@ export const JobDetails: React.FC = () => {
             ));
         }
         setEditingColumnId(null);
+    };
+
+    const addColumn = () => {
+        if (currentUser.role !== 'Admin') return;
+        const newId = `new-stage-${Date.now()}`;
+        const newColumn: KanbanColumnData = {
+            id: newId,
+            title: 'Nova Etapa',
+            count: 0,
+            color: ''
+        };
+        setColumns(prev => [...prev, newColumn]);
+        setEditingColumnId(newId);
+        setTempTitle('Nova Etapa');
+    };
+
+    const deleteColumn = (columnId: string) => {
+        if (currentUser.role !== 'Admin') return;
+        if (window.confirm('Tem certeza que deseja excluir esta etapa? Candidatos nesta etapa precisarão ser movidos manualmente.')) {
+            setColumns(prev => prev.filter(col => col.id !== columnId));
+            setActiveMenu(null);
+        }
+    };
+
+    const [draggedColumnIndex, setDraggedColumnIndex] = useState<number | null>(null);
+
+    const handleColumnDragStart = (e: React.DragEvent, index: number) => {
+        if (currentUser.role !== 'Admin') return;
+        setDraggedColumnIndex(index);
+        e.dataTransfer.setData('column-index', index.toString());
+        e.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleColumnDrop = (e: React.DragEvent, targetIndex: number) => {
+        if (currentUser.role !== 'Admin') return;
+        const sourceIndexStr = e.dataTransfer.getData('column-index');
+        if (sourceIndexStr === '') return; // Not a column drag
+
+        const sourceIndex = parseInt(sourceIndexStr);
+        if (sourceIndex === targetIndex) return;
+
+        const newColumns = [...columns];
+        const [movedColumn] = newColumns.splice(sourceIndex, 1);
+        newColumns.splice(targetIndex, 0, movedColumn);
+        setColumns(newColumns);
+        setDraggedColumnIndex(null);
     };
 
     // --- Modal Handlers ---
@@ -565,12 +612,23 @@ export const JobDetails: React.FC = () => {
                     style={{ scrollBehavior: isDragScroll ? 'auto' : 'smooth', minHeight: 'min-content' }}
                 >
                     <div className="flex gap-4 min-w-full px-1">
-                        {columns.map(col => (
+                        {columns.map((col, idx) => (
                             <div
                                 key={col.id}
-                                className="flex flex-col gap-4 min-w-[320px] w-[320px] flex-shrink-0 bg-[#f1f3f7] dark:bg-[#151a24] rounded-xl p-3 transition-colors duration-200"
-                                onDragOver={handleDragOver}
-                                onDrop={(e) => handleDrop(e, col.id)}
+                                draggable={currentUser.role === 'Admin'}
+                                onDragStart={(e) => handleColumnDragStart(e, idx)}
+                                onDragOver={(e) => {
+                                    if (currentUser.role === 'Admin') e.preventDefault();
+                                    handleDragOver(e);
+                                }}
+                                onDrop={(e) => {
+                                    if (currentUser.role === 'Admin' && e.dataTransfer.getData('column-index') !== '') {
+                                        handleColumnDrop(e, idx);
+                                    } else {
+                                        handleDrop(e, col.id);
+                                    }
+                                }}
+                                className={`flex flex-col gap-4 min-w-[320px] w-[320px] flex-shrink-0 bg-[#f1f3f7] dark:bg-[#151a24] rounded-xl p-3 transition-all duration-200 ${draggedColumnIndex === idx ? 'opacity-30' : ''}`}
                             >
                                 <div className="flex items-center justify-between mb-2 px-1 relative">
                                     <div className="flex-1 mr-2">
@@ -585,35 +643,44 @@ export const JobDetails: React.FC = () => {
                                                 className="w-full bg-white dark:bg-[#2a303c] border border-primary rounded px-2 py-0.5 text-xs font-bold uppercase tracking-wider outline-none text-[#111318] dark:text-white"
                                             />
                                         ) : (
-                                            <h3 className="text-xs font-bold text-[#616f89] uppercase tracking-wider">{col.title}</h3>
+                                            <h3 className={`text-xs font-bold text-[#616f89] uppercase tracking-wider ${currentUser.role === 'Admin' ? 'cursor-grab active:cursor-grabbing' : ''}`}>{col.title}</h3>
                                         )}
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className="bg-[#dbdfe6] dark:bg-[#2a303c] text-[#111318] dark:text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{updateCandidateCount(col.id)}</span>
-                                        <div className="relative">
-                                            <button
-                                                onClick={() => setActiveMenu(activeMenu === col.id ? null : col.id)}
-                                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                                            >
-                                                <span className="material-symbols-outlined text-lg">more_horiz</span>
-                                            </button>
+                                        {currentUser.role === 'Admin' && (
+                                            <div className="relative">
+                                                <button
+                                                    onClick={() => setActiveMenu(activeMenu === col.id ? null : col.id)}
+                                                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                                                >
+                                                    <span className="material-symbols-outlined text-lg">more_horiz</span>
+                                                </button>
 
-                                            {/* Menu */}
-                                            {activeMenu === col.id && (
-                                                <>
-                                                    <div className="fixed inset-0 z-10" onClick={() => setActiveMenu(null)}></div>
-                                                    <div className="absolute right-0 top-full mt-1 z-20 bg-white dark:bg-[#2a303c] rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 w-32 overflow-hidden">
-                                                        <button
-                                                            onClick={() => startEditing(col)}
-                                                            className="w-full text-left px-3 py-2 text-[10px] font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-primary flex items-center gap-2"
-                                                        >
-                                                            <span className="material-symbols-outlined text-sm">edit</span>
-                                                            Renomear
-                                                        </button>
-                                                    </div>
-                                                </>
-                                            )}
-                                        </div>
+                                                {/* Menu */}
+                                                {activeMenu === col.id && (
+                                                    <>
+                                                        <div className="fixed inset-0 z-10" onClick={() => setActiveMenu(null)}></div>
+                                                        <div className="absolute right-0 top-full mt-1 z-20 bg-white dark:bg-[#2a303c] rounded-lg shadow-xl border border-gray-200 dark:border-gray-700 w-40 overflow-hidden">
+                                                            <button
+                                                                onClick={() => startEditing(col)}
+                                                                className="w-full text-left px-3 py-2 text-[10px] font-bold text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-primary flex items-center gap-2"
+                                                            >
+                                                                <span className="material-symbols-outlined text-sm">edit</span>
+                                                                Renomear
+                                                            </button>
+                                                            <button
+                                                                onClick={() => deleteColumn(col.id)}
+                                                                className="w-full text-left px-3 py-2 text-[10px] font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 flex items-center gap-2"
+                                                            >
+                                                                <span className="material-symbols-outlined text-sm">delete</span>
+                                                                Excluir Etapa
+                                                            </button>
+                                                        </div>
+                                                    </>
+                                                )}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
@@ -679,6 +746,16 @@ export const JobDetails: React.FC = () => {
                                 ))}
                             </div>
                         ))}
+
+                        {currentUser.role === 'Admin' && (
+                            <button
+                                onClick={addColumn}
+                                className="min-w-[320px] w-[320px] h-32 flex-shrink-0 border-2 border-dashed border-[#dbdfe6] dark:border-[#2a303c] rounded-xl flex flex-col items-center justify-center text-[#616f89] hover:text-primary hover:border-primary hover:bg-primary/5 transition-all gap-2"
+                            >
+                                <span className="material-symbols-outlined text-3xl">add_circle</span>
+                                <span className="text-xs font-bold uppercase tracking-widest">Adicionar Etapa</span>
+                            </button>
+                        )}
                     </div>
                 </div>
             </main>
