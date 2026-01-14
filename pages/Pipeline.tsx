@@ -58,45 +58,37 @@ export const Pipeline: React.FC = () => {
     const [startX, setStartX] = useState(0);
     const [scrollLeft, setScrollLeft] = useState(0);
 
-    const handleBoardMouseDown = (e: React.MouseEvent) => {
-        // Allow scrolling even if clicking on cards, as long as it's NOT the drag indicator
-        if ((e.target as HTMLElement).closest('.cursor-grab')) return;
-        if ((e.target as HTMLElement).closest('button')) return;
-        if ((e.target as HTMLElement).closest('input')) return;
+    const handleBoardPointerDown = (e: React.PointerEvent) => {
+        // Only trigger for primary pointer (left click or touch)
+        if (!e.isPrimary) return;
+
+        // Prevent scrolling if clicking on interaction elements
+        const target = e.target as HTMLElement;
+        if (target.closest('.cursor-grab') || target.closest('button') || target.closest('input') || target.closest('a')) return;
 
         if (!boardRef.current) return;
+
         setIsDragScroll(true);
+        // Set capture to track movement even if pointer leaves element
+        boardRef.current.setPointerCapture(e.pointerId);
+
         setStartX(e.pageX - boardRef.current.offsetLeft);
         setScrollLeft(boardRef.current.scrollLeft);
     };
 
-    const handleBoardMouseMove = (e: React.MouseEvent) => {
+    const handleBoardPointerMove = (e: React.PointerEvent) => {
         if (!isDragScroll || !boardRef.current) return;
-        e.preventDefault();
+
+        // requestAnimationFrame could be added if performance is an issue
         const x = e.pageX - boardRef.current.offsetLeft;
-        const walk = (x - startX) * 2;
+        const walk = (x - startX) * 1.5; // Adjusted sensitivity
         boardRef.current.scrollLeft = scrollLeft - walk;
     };
 
-    // Touch Handlers for Mobile/Tablet
-    const handleBoardTouchStart = (e: React.TouchEvent) => {
-        if ((e.target as HTMLElement).closest('.cursor-grab')) return;
-        if ((e.target as HTMLElement).closest('button')) return;
-        if ((e.target as HTMLElement).closest('input')) return;
-
-        if (!boardRef.current) return;
-        setIsDragScroll(true);
-        const touch = e.touches[0];
-        setStartX(touch.pageX - boardRef.current.offsetLeft);
-        setScrollLeft(boardRef.current.scrollLeft);
-    };
-
-    const handleBoardTouchMove = (e: React.TouchEvent) => {
+    const handleBoardPointerUp = (e: React.PointerEvent) => {
         if (!isDragScroll || !boardRef.current) return;
-        const touch = e.touches[0];
-        const x = touch.pageX - boardRef.current.offsetLeft;
-        const walk = (x - startX) * 2;
-        boardRef.current.scrollLeft = scrollLeft - walk;
+        setIsDragScroll(false);
+        boardRef.current.releasePointerCapture(e.pointerId);
     };
 
     const stopDragging = () => {
@@ -258,20 +250,18 @@ export const Pipeline: React.FC = () => {
                     // KANBAN VIEW
                     <div
                         ref={boardRef}
-                        onMouseDown={handleBoardMouseDown}
-                        onMouseLeave={stopDragging}
-                        onMouseUp={stopDragging}
-                        onMouseMove={handleBoardMouseMove}
-                        onTouchStart={handleBoardTouchStart}
-                        onTouchMove={handleBoardTouchMove}
-                        onTouchEnd={stopDragging}
-                        className={`flex-1 overflow-x-auto custom-scrollbar px-6 pb-8 ${isDragScroll ? 'cursor-grabbing select-none' : 'cursor-default'}`}
+                        onPointerDown={handleBoardPointerDown}
+                        onPointerMove={handleBoardPointerMove}
+                        onPointerUp={handleBoardPointerUp}
+                        onPointerCancel={stopDragging}
+                        className={`flex-1 overflow-x-auto custom-scrollbar px-6 pb-8 touch-pan-y ${isDragScroll ? 'cursor-grabbing select-none' : 'cursor-default'}`}
+                        style={{ scrollBehavior: isDragScroll ? 'auto' : 'smooth' }}
                     >
                         <div className="flex gap-6 h-full items-start">
                             {columns.map((col) => (
                                 <div
                                     key={col.id}
-                                    className="min-w-[320px] w-[320px] flex flex-col h-full rounded-xl transition-colors duration-200"
+                                    className="min-w-[320px] w-[320px] flex-shrink-0 flex flex-col h-full rounded-xl transition-colors duration-200"
                                     onDragOver={handleDragOver}
                                     onDrop={(e) => handleDrop(e, col.id)}
                                 >
