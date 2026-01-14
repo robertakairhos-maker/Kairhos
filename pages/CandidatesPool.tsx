@@ -1,8 +1,63 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { supabase } from '../supabase';
+import { Candidate } from '../types';
 
 export const CandidatesPool: React.FC = () => {
     const { candidates, jobs } = useApp();
+
+    const getSignedUrl = async (resumeUrl: string) => {
+        try {
+            if (!resumeUrl) return null;
+            if (resumeUrl.startsWith('blob:') || resumeUrl.startsWith('data:')) return resumeUrl;
+            if (resumeUrl.includes('dummy.pdf')) return resumeUrl;
+
+            let path = '';
+            if (resumeUrl.includes('/resumes/')) {
+                const parts = resumeUrl.split('/resumes/');
+                if (parts.length > 1) {
+                    path = parts[1];
+                }
+            }
+
+            if (!path) return resumeUrl;
+
+            path = decodeURIComponent(path);
+
+            const { data, error } = await supabase.storage
+                .from('resumes')
+                .createSignedUrl(path, 60 * 60);
+
+            if (error || !data?.signedUrl) {
+                console.warn('Failed to get signed URL:', error);
+                return resumeUrl;
+            }
+
+            return data.signedUrl;
+        } catch (error) {
+            console.error('Error generating signed URL:', error);
+            return resumeUrl;
+        }
+    };
+
+    const handleDownloadResume = async (candidate: Candidate) => {
+        if (!candidate.resumeUrl) return;
+
+        try {
+            const url = await getSignedUrl(candidate.resumeUrl);
+            if (!url) return;
+
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = candidate.resumeName || 'curriculo';
+            link.target = '_blank';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (e) {
+            alert('Erro ao baixar arquivo. Tente novamente.');
+        }
+    };
 
     // Filters State
     const [searchTerm, setSearchTerm] = useState('');
@@ -294,14 +349,13 @@ export const CandidatesPool: React.FC = () => {
                                             >
                                                 <span className="material-symbols-outlined">chat</span>
                                             </a>
-                                            <a
-                                                href={candidate.resumeUrl}
-                                                download={candidate.resumeName}
+                                            <button
+                                                onClick={() => handleDownloadResume(candidate)}
                                                 className="p-2 text-slate-400 hover:text-primary hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg transition-colors"
                                                 title="Baixar CV"
                                             >
                                                 <span className="material-symbols-outlined">download</span>
-                                            </a>
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
