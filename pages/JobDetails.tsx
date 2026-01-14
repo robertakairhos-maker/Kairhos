@@ -39,6 +39,55 @@ export const JobDetails: React.FC = () => {
     const [editingColumnId, setEditingColumnId] = useState<string | null>(null);
     const [tempTitle, setTempTitle] = useState("");
 
+    // --- Drag to Scroll Handlers ---
+    const boardRef = useRef<HTMLDivElement>(null);
+    const [isDragScroll, setIsDragScroll] = useState(false);
+    const [startX, setStartX] = useState(0);
+    const [scrollLeft, setScrollLeft] = useState(0);
+
+    const handleBoardMouseDown = (e: React.MouseEvent) => {
+        if ((e.target as HTMLElement).closest('.cursor-grab')) return;
+        if ((e.target as HTMLElement).closest('button')) return;
+        if ((e.target as HTMLElement).closest('input')) return;
+
+        if (!boardRef.current) return;
+        setIsDragScroll(true);
+        setStartX(e.pageX - boardRef.current.offsetLeft);
+        setScrollLeft(boardRef.current.scrollLeft);
+    };
+
+    const handleBoardMouseMove = (e: React.MouseEvent) => {
+        if (!isDragScroll || !boardRef.current) return;
+        e.preventDefault();
+        const x = e.pageX - boardRef.current.offsetLeft;
+        const walk = (x - startX) * 2;
+        boardRef.current.scrollLeft = scrollLeft - walk;
+    };
+
+    const handleBoardTouchStart = (e: React.TouchEvent) => {
+        if ((e.target as HTMLElement).closest('.cursor-grab')) return;
+        if ((e.target as HTMLElement).closest('button')) return;
+        if ((e.target as HTMLElement).closest('input')) return;
+
+        if (!boardRef.current) return;
+        setIsDragScroll(true);
+        const touch = e.touches[0];
+        setStartX(touch.pageX - boardRef.current.offsetLeft);
+        setScrollLeft(boardRef.current.scrollLeft);
+    };
+
+    const handleBoardTouchMove = (e: React.TouchEvent) => {
+        if (!isDragScroll || !boardRef.current) return;
+        const touch = e.touches[0];
+        const x = touch.pageX - boardRef.current.offsetLeft;
+        const walk = (x - startX) * 2;
+        boardRef.current.scrollLeft = scrollLeft - walk;
+    };
+
+    const stopDragging = () => {
+        setIsDragScroll(false);
+    };
+
     // UI Logic
     const [filterStatus, setFilterStatus] = useState<string | null>(null);
     const [showFilterMenu, setShowFilterMenu] = useState(false);
@@ -492,7 +541,17 @@ export const JobDetails: React.FC = () => {
                 </div>
 
                 {/* Columns */}
-                <div className="w-full overflow-x-auto pb-6 custom-scrollbar">
+                <div
+                    ref={boardRef}
+                    onMouseDown={handleBoardMouseDown}
+                    onMouseLeave={stopDragging}
+                    onMouseUp={stopDragging}
+                    onMouseMove={handleBoardMouseMove}
+                    onTouchStart={handleBoardTouchStart}
+                    onTouchMove={handleBoardTouchMove}
+                    onTouchEnd={stopDragging}
+                    className={`w-full overflow-x-auto pb-6 custom-scrollbar ${isDragScroll ? 'cursor-grabbing select-none' : 'cursor-default'}`}
+                >
                     <div className="flex gap-4 min-w-full px-1">
                         {columns.map(col => (
                             <div
@@ -579,7 +638,7 @@ export const JobDetails: React.FC = () => {
                                             </div>
                                         </div>
                                         <div className="flex flex-col gap-0.5 mb-4 border-t border-[#dbdfe6] dark:border-[#2a303c] pt-3">
-                                            <a href={`https://wa.me/${candidate.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-[#25D366] hover:underline decoration-1">
+                                            <a href={`https://wa.me/${candidate.phone.replace(/[^0-9]/g, '')}`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 text-[#25D366] hover:underline decoration-1 cursor-grab">
                                                 <span className="material-symbols-outlined text-lg">chat</span>
                                                 <span className="text-[11px] font-bold">{candidate.phone}</span>
                                             </a>

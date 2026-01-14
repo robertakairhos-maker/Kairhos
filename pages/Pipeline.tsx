@@ -59,8 +59,8 @@ export const Pipeline: React.FC = () => {
     const [scrollLeft, setScrollLeft] = useState(0);
 
     const handleBoardMouseDown = (e: React.MouseEvent) => {
-        // Prevent if clicking interactable elements or draggable cards
-        if ((e.target as HTMLElement).closest('[draggable="true"]')) return;
+        // Allow scrolling even if clicking on cards, as long as it's NOT the drag indicator
+        if ((e.target as HTMLElement).closest('.cursor-grab')) return;
         if ((e.target as HTMLElement).closest('button')) return;
         if ((e.target as HTMLElement).closest('input')) return;
 
@@ -74,15 +74,32 @@ export const Pipeline: React.FC = () => {
         if (!isDragScroll || !boardRef.current) return;
         e.preventDefault();
         const x = e.pageX - boardRef.current.offsetLeft;
-        const walk = (x - startX) * 2; // Scroll speed multiplier
+        const walk = (x - startX) * 2;
         boardRef.current.scrollLeft = scrollLeft - walk;
     };
 
-    const handleBoardMouseUp = () => {
-        setIsDragScroll(false);
+    // Touch Handlers for Mobile/Tablet
+    const handleBoardTouchStart = (e: React.TouchEvent) => {
+        if ((e.target as HTMLElement).closest('.cursor-grab')) return;
+        if ((e.target as HTMLElement).closest('button')) return;
+        if ((e.target as HTMLElement).closest('input')) return;
+
+        if (!boardRef.current) return;
+        setIsDragScroll(true);
+        const touch = e.touches[0];
+        setStartX(touch.pageX - boardRef.current.offsetLeft);
+        setScrollLeft(boardRef.current.scrollLeft);
     };
 
-    const handleBoardMouseLeave = () => {
+    const handleBoardTouchMove = (e: React.TouchEvent) => {
+        if (!isDragScroll || !boardRef.current) return;
+        const touch = e.touches[0];
+        const x = touch.pageX - boardRef.current.offsetLeft;
+        const walk = (x - startX) * 2;
+        boardRef.current.scrollLeft = scrollLeft - walk;
+    };
+
+    const stopDragging = () => {
         setIsDragScroll(false);
     };
 
@@ -242,9 +259,12 @@ export const Pipeline: React.FC = () => {
                     <div
                         ref={boardRef}
                         onMouseDown={handleBoardMouseDown}
-                        onMouseLeave={handleBoardMouseLeave}
-                        onMouseUp={handleBoardMouseUp}
+                        onMouseLeave={stopDragging}
+                        onMouseUp={stopDragging}
                         onMouseMove={handleBoardMouseMove}
+                        onTouchStart={handleBoardTouchStart}
+                        onTouchMove={handleBoardTouchMove}
+                        onTouchEnd={stopDragging}
                         className={`flex-1 overflow-x-auto custom-scrollbar px-6 pb-8 ${isDragScroll ? 'cursor-grabbing select-none' : 'cursor-default'}`}
                     >
                         <div className="flex gap-6 h-full items-start">
@@ -319,7 +339,7 @@ export const Pipeline: React.FC = () => {
                                                     {job.tag && (
                                                         <span className={`${job.tag.color} text-[10px] font-extrabold px-2 py-1 rounded`}>{job.tag.label}</span>
                                                     )}
-                                                    <span className="material-symbols-outlined text-gray-300 group-hover:text-primary transition-colors cursor-grab active:cursor-grabbing">drag_indicator</span>
+                                                    <span className="material-symbols-outlined text-gray-300 group-hover:text-primary transition-colors cursor-grab active:cursor-grabbing hover:scale-110">drag_indicator</span>
                                                 </div>
                                                 <h4 className="font-bold text-[#111318] dark:text-gray-100 mb-1 leading-tight">{job.title}</h4>
                                                 <p className="text-xs text-[#616f89] dark:text-gray-400 mb-4 flex items-center gap-1">
