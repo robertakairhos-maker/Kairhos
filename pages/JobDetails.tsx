@@ -48,6 +48,66 @@ export const JobDetails: React.FC = () => {
     const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
 
     const [showPreviewModal, setShowPreviewModal] = useState(false);
+    const [signedResumeUrl, setSignedResumeUrl] = useState<string | null>(null);
+    const [isGeneratingUrl, setIsGeneratingUrl] = useState(false);
+
+    const getSignedUrl = async (resumeUrl: string) => {
+        try {
+            if (!resumeUrl) return null;
+            // Check if it's already a blob or object URL (local preview)
+            if (resumeUrl.startsWith('blob:') || resumeUrl.startsWith('data:')) return resumeUrl;
+            // Check if it's a dummy public URL
+            if (resumeUrl.includes('dummy.pdf')) return resumeUrl;
+
+            // Extract path
+            // Format: .../storage/v1/object/public/resumes/<path>
+            let path = '';
+            if (resumeUrl.includes('/resumes/')) {
+                const parts = resumeUrl.split('/resumes/');
+                if (parts.length > 1) {
+                    path = parts[1];
+                }
+            }
+
+            if (!path) return resumeUrl; // Return original if path extraction fails
+
+            path = decodeURIComponent(path); // Handle spaces/special chars
+
+            const { data, error } = await supabase.storage
+                .from('resumes')
+                .createSignedUrl(path, 60 * 60); // 1 hour validity
+
+            if (error || !data?.signedUrl) {
+                console.warn('Failed to get signed URL:', error);
+                return resumeUrl;
+            }
+
+            return data.signedUrl;
+        } catch (error) {
+            console.error('Error generating signed URL:', error);
+            return resumeUrl;
+        }
+    };
+
+    const handleDownloadResume = async (candidate: Candidate) => {
+        if (!candidate.resumeUrl) return;
+
+        try {
+            const url = await getSignedUrl(candidate.resumeUrl);
+            if (!url) return;
+
+            // Create temporary link to trigger download
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = candidate.resumeName || 'curriculo';
+            link.target = '_blank'; // Open in new tab if download is blocked or to be safe
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (e) {
+            alert('Erro ao baixar arquivo. Tente novamente.');
+        }
+    };
     const [showNotesModal, setShowNotesModal] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
 
@@ -179,9 +239,17 @@ export const JobDetails: React.FC = () => {
         setShowCandidateModal(true);
     };
 
-    const openPreviewModal = (candidate: Candidate) => {
+    const openPreviewModal = async (candidate: Candidate) => {
         setSelectedCandidate(candidate);
         setShowPreviewModal(true);
+        setSignedResumeUrl(null); // Reset
+
+        if (candidate.resumeUrl) {
+            setIsGeneratingUrl(true);
+            const url = await getSignedUrl(candidate.resumeUrl);
+            setSignedResumeUrl(url);
+            setIsGeneratingUrl(false);
+        }
     };
 
     const openNotesModal = (candidate: Candidate) => {
@@ -511,9 +579,9 @@ export const JobDetails: React.FC = () => {
                                                 <button onClick={() => openPreviewModal(candidate)} className="flex-1 h-7 rounded-lg bg-background-light dark:bg-[#2a303c] flex items-center justify-center text-[#616f89] hover:text-primary transition-colors" title="Visualizar CV">
                                                     <span className="material-symbols-outlined text-lg">visibility</span>
                                                 </button>
-                                                <a href={candidate.resumeUrl} download={candidate.resumeName} className="flex-1 h-7 rounded-lg bg-background-light dark:bg-[#2a303c] flex items-center justify-center text-[#616f89] hover:text-primary transition-colors" title="Download CV">
+                                                <button onClick={() => handleDownloadResume(candidate)} className="flex-1 h-7 rounded-lg bg-background-light dark:bg-[#2a303c] flex items-center justify-center text-[#616f89] hover:text-primary transition-colors" title="Download CV">
                                                     <span className="material-symbols-outlined text-lg">download</span>
-                                                </a>
+                                                </button>
                                                 <button onClick={() => openNotesModal(candidate)} className="flex-1 h-7 rounded-lg bg-background-light dark:bg-[#2a303c] flex items-center justify-center text-[#616f89] hover:text-primary transition-colors relative" title="Observações">
                                                     <span className="material-symbols-outlined text-lg">chat_bubble</span>
                                                     {candidate.notes && candidate.notes.length > 0 && (
@@ -696,10 +764,15 @@ export const JobDetails: React.FC = () => {
                                 </button>
                             </div>
                             <div className="flex-1 bg-gray-100 dark:bg-gray-900 relative">
-                                {selectedCandidate.resumeUrl ? (
+                                {isGeneratingUrl ? (
+                                    <div className="flex flex-col items-center justify-center h-full">
+                                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-2"></div>
+                                        <p className="text-gray-500">Carregando documento...</p>
+                                    </div>
+                                ) : signedResumeUrl ? (
                                     selectedCandidate.resumeName?.toLowerCase().endsWith('.pdf') ? (
                                         <iframe
-                                            src={selectedCandidate.resumeUrl}
+                                            src={signedResumeUrl}
                                             className="w-full h-full"
                                             title="Resume Preview"
                                         ></iframe>
@@ -708,10 +781,10 @@ export const JobDetails: React.FC = () => {
                                             <span className="material-symbols-outlined text-6xl text-gray-400 mb-4">draft</span>
                                             <p className="text-gray-600 dark:text-gray-300 font-medium text-lg mb-2">Visualização não disponível para este formato</p>
                                             <p className="text-gray-500 dark:text-gray-400 text-sm mb-6">Por favor, faça o download do arquivo para visualizar seu conteúdo.</p>
-                                            <a href={selectedCandidate.resumeUrl} download={selectedCandidate.resumeName} className="px-6 py-2 bg-primary text-white rounded-lg font-bold hover:bg-primary/90 flex items-center gap-2">
+                                            <button onClick={() => handleDownloadResume(selectedCandidate)} className="px-6 py-2 bg-primary text-white rounded-lg font-bold hover:bg-primary/90 flex items-center gap-2">
                                                 <span className="material-symbols-outlined">download</span>
                                                 Baixar Arquivo
-                                            </a>
+                                            </button>
                                         </div>
                                     )
                                 ) : (

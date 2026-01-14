@@ -8,10 +8,10 @@ const INITIAL_COLUMNS: KanbanColumnData[] = [
     { id: 'Em Triagem', title: 'Em Triagem', count: 0, color: 'bg-amber-400' },
     { id: 'Primeira Entrevista', title: 'Primeira Entrevista', count: 0, color: 'bg-indigo-400' },
     { id: 'Entrevista Gestor', title: 'Entrevista Gestor', count: 0, color: 'bg-purple-400' },
-    { id: 'Entregue', title: 'Entregue', count: 0, color: 'bg-green-400' },
-    { id: 'Retrabalho', title: 'Retrabalho', count: 0, color: 'bg-red-400' },
     { id: 'Vaga paralisada', title: 'Vaga paralisada', count: 0, color: 'bg-gray-400' },
     { id: 'Substituição', title: 'Substituição', count: 0, color: 'bg-cyan-400' },
+    { id: 'Entregue', title: 'Entregue', count: 0, color: 'bg-green-400' },
+    { id: 'Retrabalho', title: 'Retrabalho', count: 0, color: 'bg-red-400' },
 ];
 
 export const Pipeline: React.FC = () => {
