@@ -135,12 +135,12 @@ const INITIAL_CANDIDATES: Candidate[] = [
         currentRole: 'Software Engineer',
         seniority: 'Sênior',
         notes: [
-            { id: 'n1', content: 'Candidato com forte experiência em React.', authorName: 'Ana Silva', authorAvatar: INITIAL_USERS[0].avatar, createdAt: '2023-10-24T10:00:00' }
+            { id: 'n1', content: 'Candidato com forte experiência em React.', authorId: 'u1', authorName: 'Ana Silva', authorAvatar: INITIAL_USERS[0].avatar, createdAt: '2023-10-24T10:00:00' }
         ]
     },
     {
         id: '2', jobId: '1', initials: 'BC', name: 'Bruno Costa', email: 'bruno.costa@tech.com', phone: '+55 11 99988-7766',
-        status: 'Entrevista', stage: 'Primeira Entrevista', avatarColor: 'bg-orange-100 text-orange-600', textColor: 'text-primary dark:text-blue-400', badgeColor: 'bg-primary/10 dark:bg-primary/20', badgeText: 'Entrevista',
+        status: 'Entrevista', stage: 'Primeira entrevista', avatarColor: 'bg-orange-100 text-orange-600', textColor: 'text-primary dark:text-blue-400', badgeColor: 'bg-primary/10 dark:bg-primary/20', badgeText: 'Entrevista',
         resumeName: 'Bruno_Costa_Resume.pdf', resumeUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
         skills: ['JavaScript', 'Vue.js', 'PHP', 'Laravel'],
         source: 'Indicação',
@@ -148,12 +148,12 @@ const INITIAL_CANDIDATES: Candidate[] = [
         currentRole: 'Backend Developer',
         seniority: 'Pleno',
         notes: [
-            { id: 'n2', content: 'Agendado entrevista técnica para terça-feira.', authorName: 'Ana Silva', authorAvatar: INITIAL_USERS[0].avatar, createdAt: '2023-10-25T14:30:00' }
+            { id: 'n2', content: 'Agendado entrevista técnica para terça-feira.', authorId: 'u1', authorName: 'Ana Silva', authorAvatar: INITIAL_USERS[0].avatar, createdAt: '2023-10-25T14:30:00' }
         ]
     },
     {
         id: '3', jobId: '2', initials: 'AS', name: 'Ana Silva', email: 'ana.silva@marketing.pro', phone: '+55 11 91234-5678',
-        status: 'Aprovado', stage: 'Entregue', avatarColor: 'bg-blue-100 text-primary', textColor: 'text-green-700 dark:text-green-400', badgeColor: 'bg-green-100 dark:bg-green-900/30', badgeText: 'Aprovado',
+        status: 'Aprovado', stage: 'Aprovado', avatarColor: 'bg-blue-100 text-primary', textColor: 'text-green-700 dark:text-green-400', badgeColor: 'bg-green-100 dark:bg-green-900/30', badgeText: 'Aprovado',
         resumeName: 'Portfolio_Ana.pdf', resumeUrl: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
         skills: ['Product Management', 'Growth', 'Data Analytics', 'SQL'],
         source: 'Site da Empresa',
@@ -161,11 +161,11 @@ const INITIAL_CANDIDATES: Candidate[] = [
         currentRole: 'Product Owner',
         seniority: 'Especialista',
         notes: [
-            { id: 'n3', content: 'Aprovada pelo gestor. Aguardando proposta.', authorName: 'Lucas Santos', authorAvatar: INITIAL_USERS[1].avatar, createdAt: '2023-10-26T09:15:00' }
+            { id: 'n3', content: 'Aprovada pelo gestor. Aguardando proposta.', authorId: 'u2', authorName: 'Lucas Santos', authorAvatar: INITIAL_USERS[1].avatar, createdAt: '2023-10-26T09:15:00' }
         ]
     },
     {
-        id: '4', jobId: '3', initials: 'FM', name: 'Felipe Melo', email: 'felipe.melo@sales.com', phone: '+55 11 95555-4444',
+        id: '4', jobId: '3', initials: 'FM', name: 'Melo Felipe', email: 'felipe.melo@sales.com', phone: '+55 11 95555-4444',
         status: 'Triagem', stage: 'Triagem', avatarColor: 'bg-purple-100 text-purple-600', textColor: 'text-gray-700 dark:text-gray-300', badgeColor: 'bg-gray-100 dark:bg-gray-700/50', badgeText: 'Triagem',
         skills: ['Vendas B2B', 'CRM Salesforce', 'Negociação', 'Inglês Avançado'],
         source: 'LinkedIn',
@@ -279,7 +279,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         textColor: 'text-gray-700',
                         badgeColor: 'bg-gray-100',
                         badgeText: c.candidate_stage,
-                        trashed: c.trashed || false
+                        trashed: c.trashed || false,
+                        notes: c.notes || []
                     })));
                 }
 
@@ -389,7 +390,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             source: candidateData.source,
             location: candidateData.location,
             current_job_role: candidateData.currentRole,
-            seniority: candidateData.seniority
+            seniority: candidateData.seniority,
+            notes: candidateData.notes
         }).select().single();
 
         if (data && !error) {
@@ -398,6 +400,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // Helper for colors based on status (simplified)
             let colors = { avatarColor: 'bg-gray-100 text-gray-600', textColor: 'text-gray-700', badgeColor: 'bg-gray-100', badgeText: data.candidate_status };
             if (data.candidate_stage === 'Triagem') colors = { avatarColor: 'bg-emerald-100 text-emerald-600', textColor: 'text-gray-700 dark:text-gray-300', badgeColor: 'bg-gray-100 dark:bg-gray-700/50', badgeText: 'Triagem' };
+            if (data.candidate_stage === 'Aprovado') colors = { avatarColor: 'bg-blue-100 text-primary', textColor: 'text-green-700 dark:text-green-400', badgeColor: 'bg-green-100 dark:bg-green-900/30', badgeText: 'Aprovado' };
+            if (data.candidate_stage === 'Reprovado' || data.candidate_stage === 'Reprovado Gestor') colors = { avatarColor: 'bg-red-100 text-red-600', textColor: 'text-red-700', badgeColor: 'bg-red-100', badgeText: 'Reprovado' };
 
             const newCandidate: Candidate = {
                 ...candidateData,
@@ -436,6 +440,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (updates.location) dbUpdates.location = updates.location;
         if (updates.currentRole) dbUpdates.current_job_role = updates.currentRole;
         if (updates.seniority) dbUpdates.seniority = updates.seniority;
+        if (updates.notes) dbUpdates.notes = updates.notes;
 
         const { error } = await supabase.from('candidates').update(dbUpdates).eq('id', candidateId);
         if (!error) {

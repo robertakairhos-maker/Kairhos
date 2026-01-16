@@ -5,13 +5,15 @@ import { useApp } from '../context/AppContext';
 import { supabase } from '../supabase';
 
 const INITIAL_COLUMNS: KanbanColumnData[] = [
-    { id: 'Triagem', title: 'Triagem', count: 0, color: '' },
-    { id: 'Testes', title: 'Fase de Testes', count: 0, color: '' },
-    { id: 'Primeira Entrevista', title: 'Primeira Entrevista', count: 0, color: '' },
-    { id: 'Entrevista Gestor', title: 'Entrevista Gestor', count: 0, color: '' },
-    { id: 'Entregue', title: 'Entregue', count: 0, color: '' },
-    { id: 'Retrabalho', title: 'Retrabalho', count: 0, color: '' },
-    { id: 'Reprovado', title: 'Reprovado', count: 0, color: '' },
+    { id: 'Triagem', title: 'Triagem', count: 0, color: 'bg-slate-400' },
+    { id: 'Primeira entrevista', title: 'Primeira entrevista', count: 0, color: 'bg-blue-400' },
+    { id: 'Reprovado', title: 'Reprovado', count: 0, color: 'bg-red-500' },
+    { id: 'Video apresentação', title: 'Video apresentação', count: 0, color: 'bg-purple-400' },
+    { id: 'Entrevista com gestor', title: 'Entrevista com gestor', count: 0, color: 'bg-indigo-400' },
+    { id: 'Presencial', title: 'Presencial', count: 0, color: 'bg-orange-400' },
+    { id: 'Testes', title: 'Testes', count: 0, color: 'bg-amber-400' },
+    { id: 'Reprovado Gestor', title: 'Reprovado Gestor', count: 0, color: 'bg-red-600' },
+    { id: 'Aprovado', title: 'Aprovado', count: 0, color: 'bg-green-500' },
 ];
 
 export const JobDetails: React.FC = () => {
@@ -188,8 +190,10 @@ export const JobDetails: React.FC = () => {
         skills: ''
     });
 
-    // Note Input
+    // Note State
     const [newNoteContent, setNewNoteContent] = useState('');
+    const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+    const [editingNoteContent, setEditingNoteContent] = useState('');
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const notesContainerRef = useRef<HTMLDivElement>(null);
@@ -234,8 +238,10 @@ export const JobDetails: React.FC = () => {
         const candidateId = e.dataTransfer.getData('text/plain');
         if (candidateId) {
             let newStatus: Candidate['status'] | undefined;
-            if (targetStageId === 'Reprovado') {
+            if (targetStageId === 'Reprovado' || targetStageId === 'Reprovado Gestor') {
                 newStatus = 'Rejeitado';
+            } else if (targetStageId === 'Aprovado') {
+                newStatus = 'Aprovado';
             }
 
             // Perform the update
@@ -414,6 +420,7 @@ export const JobDetails: React.FC = () => {
             notes.push({
                 id: Date.now().toString(),
                 content: newNoteContent,
+                authorId: currentUser.id,
                 authorName: currentUser.name,
                 authorAvatar: currentUser.avatar,
                 createdAt: new Date().toISOString()
@@ -461,6 +468,7 @@ export const JobDetails: React.FC = () => {
             const newNote: Note = {
                 id: Date.now().toString(),
                 content: newNoteContent,
+                authorId: currentUser.id,
                 authorName: currentUser.name,
                 authorAvatar: currentUser.avatar,
                 createdAt: new Date().toISOString()
@@ -473,6 +481,32 @@ export const JobDetails: React.FC = () => {
             setSelectedCandidate({ ...selectedCandidate, notes: updatedNotes });
 
             setNewNoteContent('');
+        }
+    };
+
+    const handleEditNote = (note: Note) => {
+        setEditingNoteId(note.id);
+        setEditingNoteContent(note.content);
+    };
+
+    const handleSaveEditedNote = () => {
+        if (selectedCandidate && editingNoteId && editingNoteContent.trim()) {
+            const updatedNotes = selectedCandidate.notes?.map(note =>
+                note.id === editingNoteId ? { ...note, content: editingNoteContent } : note
+            ) || [];
+
+            updateCandidate(selectedCandidate.id, { notes: updatedNotes });
+            setSelectedCandidate({ ...selectedCandidate, notes: updatedNotes });
+            setEditingNoteId(null);
+            setEditingNoteContent('');
+        }
+    };
+
+    const handleDeleteNote = (noteId: string) => {
+        if (selectedCandidate && window.confirm('Tem certeza que deseja excluir este comentário?')) {
+            const updatedNotes = selectedCandidate.notes?.filter(note => note.id !== noteId) || [];
+            updateCandidate(selectedCandidate.id, { notes: updatedNotes });
+            setSelectedCandidate({ ...selectedCandidate, notes: updatedNotes });
         }
     };
 
@@ -983,18 +1017,45 @@ export const JobDetails: React.FC = () => {
                                         {selectedCandidate.notes.map((note) => (
                                             <div key={note.id} className="flex gap-3">
                                                 <div className="flex-shrink-0">
-                                                    {note.authorAvatar.startsWith('http') ? (
+                                                    {note.authorAvatar?.startsWith('http') ? (
                                                         <img src={note.authorAvatar} alt={note.authorName} className="size-8 rounded-full object-cover border border-gray-200" />
                                                     ) : (
-                                                        <div className="size-8 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold">{note.authorAvatar}</div>
+                                                        <div className="size-8 rounded-full bg-primary/20 text-primary flex items-center justify-center text-xs font-bold">{note.authorAvatar || note.authorName.charAt(0)}</div>
                                                     )}
                                                 </div>
                                                 <div className="bg-white dark:bg-gray-800 p-3 rounded-lg rounded-tl-none shadow-sm border border-gray-100 dark:border-gray-700 flex-1">
                                                     <div className="flex justify-between items-start mb-1">
-                                                        <span className="text-xs font-bold text-[#111318] dark:text-white">{note.authorName}</span>
-                                                        <span className="text-[10px] text-gray-400">{formatDate(note.createdAt)}</span>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-xs font-bold text-[#111318] dark:text-white">{note.authorName}</span>
+                                                            <span className="text-[10px] text-gray-400">{formatDate(note.createdAt)}</span>
+                                                        </div>
+                                                        {note.authorId === currentUser.id && (
+                                                            <div className="flex items-center gap-2">
+                                                                <button onClick={() => handleEditNote(note)} className="text-gray-400 hover:text-primary transition-colors">
+                                                                    <span className="material-symbols-outlined text-sm">edit</span>
+                                                                </button>
+                                                                <button onClick={() => handleDeleteNote(note.id)} className="text-gray-400 hover:text-red-500 transition-colors">
+                                                                    <span className="material-symbols-outlined text-sm">delete</span>
+                                                                </button>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                    <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap">{note.content}</p>
+                                                    {editingNoteId === note.id ? (
+                                                        <div className="mt-2">
+                                                            <textarea
+                                                                className="form-textarea w-full rounded-lg border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm p-2 min-h-[60px] mb-2 focus:ring-primary focus:border-primary resize-none dark:text-white"
+                                                                value={editingNoteContent}
+                                                                onChange={e => setEditingNoteContent(e.target.value)}
+                                                                autoFocus
+                                                            />
+                                                            <div className="flex justify-end gap-2">
+                                                                <button onClick={() => setEditingNoteId(null)} className="text-xs font-bold text-gray-500 hover:text-gray-700">Cancelar</button>
+                                                                <button onClick={handleSaveEditedNote} className="text-xs font-bold text-primary hover:text-primary/80">Salvar</button>
+                                                            </div>
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-sm text-gray-600 dark:text-gray-300 whitespace-pre-wrap">{note.content}</p>
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}

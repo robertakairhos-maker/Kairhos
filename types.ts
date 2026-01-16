@@ -51,6 +51,7 @@ export interface Job {
 export interface Note {
     id: string;
     content: string;
+    authorId: string;
     authorName: string;
     authorAvatar: string;
     createdAt: string;
@@ -64,7 +65,7 @@ export interface Candidate {
     email: string;
     phone: string;
     status: 'Triagem' | 'Entrevista' | 'Aprovado' | 'Rejeitado';
-    stage: 'Triagem' | 'Testes' | 'Primeira Entrevista' | 'Entrevista Gestor' | 'Entregue' | 'Retrabalho' | 'Reprovado';
+    stage: 'Triagem' | 'Primeira entrevista' | 'Reprovado' | 'Video apresentação' | 'Entrevista com gestor' | 'Presencial' | 'Testes' | 'Reprovado Gestor' | 'Aprovado';
     avatarColor: string;
     textColor: string;
     badgeColor: string;

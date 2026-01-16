@@ -206,6 +206,25 @@ export const CandidatesPool: React.FC = () => {
                         </div>
                     )}
 
+                    {/* Stage Filter */}
+                    <div className="flex flex-col gap-2">
+                        <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">Etapa do Pipeline</span>
+                        <select
+                            className="form-select w-full rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm dark:text-white"
+                            value={selectedStage}
+                            onChange={(e) => setSelectedStage(e.target.value)}
+                        >
+                            <option value="">Todas as Etapas</option>
+                            {[
+                                'Triagem', 'Primeira entrevista', 'Reprovado',
+                                'Video apresentação', 'Entrevista com gestor',
+                                'Presencial', 'Testes', 'Reprovado Gestor', 'Aprovado'
+                            ].map(stage => (
+                                <option key={stage} value={stage}>{stage}</option>
+                            ))}
+                        </select>
+                    </div>
+
                     {/* Skills Filter */}
                     <div className="flex flex-col gap-2">
                         <span className="text-xs font-bold uppercase text-slate-500 tracking-wider">Habilidades (Tags)</span>
