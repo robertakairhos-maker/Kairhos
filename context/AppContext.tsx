@@ -251,7 +251,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
 
             try {
-                const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+                // 1. Try to fetch existing profile
+                const { data: profile, error: fetchError } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
 
                 if (mounted) {
                     if (profile) {
@@ -267,9 +272,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         });
                         setIsAuthenticated(true);
                     } else {
-                        console.warn('Profile not found for authenticated user:', session.user.id);
-                        setCurrentUser(GUEST_USER);
-                        setIsAuthenticated(false);
+                        // 2. Lazy Profile Creation: Auth exists but profile is missing
+                        console.warn('Profile not found for authenticated user. Attempting lazy creation...', session.user.id);
+
+                        const newProfile = {
+                            id: session.user.id,
+                            name: session.user.user_metadata?.name || 'Novo Recrutador',
+                            email: session.user.email || '',
+                            user_role: (session.user.user_metadata?.role as User['role']) || 'Junior Recruiter',
+                            status: 'Ativo' as User['status'],
+                            preferences: { notifications: true }
+                        };
+
+                        const { data: createdProfile, error: insertError } = await supabase
+                            .from('profiles')
+                            .insert(newProfile)
+                            .select()
+                            .single();
+
+                        if (insertError) {
+                            console.error('Lazy profile creation failed:', insertError);
+                            // If we can't create it, we can't let them in safely as an authenticated user
+                            setCurrentUser(GUEST_USER);
+                            setIsAuthenticated(false);
+                        } else if (createdProfile) {
+                            console.log('Lazy profile created successfully:', createdProfile.id);
+                            setCurrentUser({
+                                id: createdProfile.id,
+                                name: createdProfile.name,
+                                email: createdProfile.email,
+                                role: createdProfile.user_role as User['role'],
+                                status: createdProfile.status as User['status'],
+                                avatar: createdProfile.avatar_url,
+                                bio: createdProfile.bio,
+                                preferences: createdProfile.preferences
+                            });
+                            setIsAuthenticated(true);
+                        }
                     }
                 }
             } catch (err) {
