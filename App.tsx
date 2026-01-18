@@ -11,6 +11,7 @@ import { ClientManagement } from './pages/ClientManagement';
 import { CandidatesPool } from './pages/CandidatesPool';
 import { Settings } from './pages/Settings';
 import { Layout } from './components/Layout';
+import { JobTrash } from './pages/JobTrash';
 import { AppProvider, useApp } from './context/AppContext';
 
 const AppContent: React.FC = () => {
@@ -103,6 +104,23 @@ const AppContent: React.FC = () => {
             <Layout onLogout={handleLogout}>
               <JobDetails />
             </Layout>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+
+      <Route
+        path="/jobs/trash"
+        element={
+          isAuthenticated ? (
+            currentUser.role === 'Admin' ? (
+              <Layout onLogout={handleLogout}>
+                <JobTrash />
+              </Layout>
+            ) : (
+              <Navigate to="/dashboard" replace />
+            )
           ) : (
             <Navigate to="/login" replace />
           )

@@ -39,43 +39,55 @@ export const CreateJob: React.FC = () => {
         setFormData(prev => ({ ...prev, priority: val }));
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setIsSubmitting(true);
 
-        // Find selected recruiter
-        const recruiter = users.find(u => u.id === formData.recruiterId) || (currentUser.role !== 'Admin' ? currentUser : null);
-        if (!recruiter) {
-            alert("Por favor, selecione um recrutador responsável.");
-            return;
+        try {
+            // Find selected recruiter
+            const recruiter = users.find(u => u.id === formData.recruiterId) || (currentUser.role !== 'Admin' ? currentUser : null);
+            if (!recruiter) {
+                alert("Por favor, selecione um recrutador responsável.");
+                setIsSubmitting(false);
+                return;
+            }
+
+            const requirementsArray = formData.requirements
+                .split(',')
+                .map(req => req.trim())
+                .filter(req => req.length > 0);
+
+            const newJobData: Omit<Job, 'id'> = {
+                title: formData.title,
+                company: formData.company,
+                stage: 'Vagas Abertas',
+                priority: formData.priority === 'high' ? 'Crítico' : formData.priority === 'medium' ? 'Alta Prioridade' : undefined,
+                tag: { label: 'NEW', color: 'bg-green-50 text-green-600' }, // Default tag for now
+                progress: 0,
+                deadline: formData.deadline,
+                recruiter: {
+                    id: recruiter.id,
+                    name: recruiter.name,
+                    avatar: recruiter.avatar
+                },
+                candidatesCount: 0,
+                salaryMin: Number(formData.salaryMin),
+                salaryMax: Number(formData.salaryMax),
+                description: formData.description,
+                requirements: requirementsArray.length > 0 ? requirementsArray : ['Geral']
+            };
+
+            const result = await addJob(newJobData);
+            if (result) {
+                navigate('/dashboard');
+            }
+        } catch (error) {
+            console.error('Submission error:', error);
+        } finally {
+            setIsSubmitting(false);
         }
-
-        const requirementsArray = formData.requirements
-            .split(',')
-            .map(req => req.trim())
-            .filter(req => req.length > 0);
-
-        const newJobData: Omit<Job, 'id'> = {
-            title: formData.title,
-            company: formData.company,
-            stage: 'Vagas Abertas',
-            priority: formData.priority === 'high' ? 'Crítico' : formData.priority === 'medium' ? 'Alta Prioridade' : undefined,
-            tag: { label: 'NEW', color: 'bg-green-50 text-green-600' }, // Default tag for now
-            progress: 0,
-            deadline: formData.deadline,
-            recruiter: {
-                id: recruiter.id,
-                name: recruiter.name,
-                avatar: recruiter.avatar
-            },
-            candidatesCount: 0,
-            salaryMin: Number(formData.salaryMin),
-            salaryMax: Number(formData.salaryMax),
-            description: formData.description,
-            requirements: requirementsArray.length > 0 ? requirementsArray : ['Geral']
-        };
-
-        addJob(newJobData);
-        navigate('/dashboard');
     };
 
     return (

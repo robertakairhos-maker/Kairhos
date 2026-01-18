@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { KanbanColumnData, Candidate, Note } from '../types';
+import { KanbanColumnData, Candidate, Note, Job } from '../types';
 import { useApp } from '../context/AppContext';
 import { supabase } from '../supabase';
 
@@ -19,7 +19,7 @@ const INITIAL_COLUMNS: KanbanColumnData[] = [
 export const JobDetails: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { jobs, candidates, updateCandidateStage, addCandidate, updateCandidate, trashCandidate, restoreCandidate, deleteCandidatePermanently, currentUser } = useApp();
+    const { jobs, candidates, updateJob, trashJob, updateCandidateStage, addCandidate, updateCandidate, trashCandidate, restoreCandidate, deleteCandidatePermanently, currentUser, clients } = useApp();
 
     const job = jobs.find(j => j.id === id);
     const jobCandidates = candidates.filter(c => c.jobId === id && !c.trashed);
@@ -106,6 +106,66 @@ export const JobDetails: React.FC = () => {
     // UI Logic
     const [filterStatus, setFilterStatus] = useState<string | null>(null);
     const [showFilterMenu, setShowFilterMenu] = useState(false);
+
+    const [showEditJobModal, setShowEditJobModal] = useState(false);
+    const [isSavingJob, setIsSavingJob] = useState(false);
+    const [jobEditForm, setJobEditForm] = useState({
+        title: '',
+        company: '',
+        deadline: '',
+        priority: 'Alta Prioridade' as Job['priority'],
+        salaryMin: 0,
+        salaryMax: 0,
+        description: '',
+        requirements: ''
+    });
+
+    const openEditJobModal = () => {
+        if (!job) return;
+        setJobEditForm({
+            title: job.title,
+            company: job.company,
+            deadline: job.deadline || '',
+            priority: job.priority || 'Alta Prioridade',
+            salaryMin: job.salaryMin || 0,
+            salaryMax: job.salaryMax || 0,
+            description: job.description || '',
+            requirements: job.requirements ? job.requirements.join(', ') : ''
+        });
+        setShowEditJobModal(true);
+    };
+
+    const handleJobEditSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!job) return;
+        setIsSavingJob(true);
+        try {
+            const reqArray = jobEditForm.requirements.split(',').map(r => r.trim()).filter(r => r.length > 0);
+            await updateJob(job.id, {
+                title: jobEditForm.title,
+                company: jobEditForm.company,
+                deadline: jobEditForm.deadline,
+                priority: jobEditForm.priority,
+                salaryMin: Number(jobEditForm.salaryMin),
+                salaryMax: Number(jobEditForm.salaryMax),
+                description: jobEditForm.description,
+                requirements: reqArray
+            });
+            setShowEditJobModal(false);
+        } catch (error) {
+            console.error('Error saving job:', error);
+        } finally {
+            setIsSavingJob(false);
+        }
+    };
+
+    const handleTrashJob = async () => {
+        if (!job) return;
+        if (window.confirm('Mover esta vaga para a lixeira? Ela não será mais visível no Dashboard.')) {
+            await trashJob(job.id);
+            navigate('/dashboard');
+        }
+    };
 
     // Modals
     const [showCandidateModal, setShowCandidateModal] = useState(false); // Used for Add & Edit
@@ -597,6 +657,26 @@ export const JobDetails: React.FC = () => {
                             <span className="material-symbols-outlined text-lg">delete</span>
                             Lixeira ({trashedCandidates.length})
                         </button>
+
+                        {/* Admin Controls */}
+                        {currentUser.role === 'Admin' && (
+                            <div className="flex items-center gap-3">
+                                <button
+                                    onClick={openEditJobModal}
+                                    className="flex items-center gap-2 px-4 h-11 bg-white dark:bg-[#1a212d] border border-[#dbdfe6] dark:border-[#2a303c] rounded-lg text-sm font-bold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all shadow-sm"
+                                >
+                                    <span className="material-symbols-outlined text-lg">edit</span>
+                                    Editar Vaga
+                                </button>
+                                <button
+                                    onClick={handleTrashJob}
+                                    className="flex items-center gap-2 px-4 h-11 bg-white dark:bg-[#1a212d] border border-red-100 dark:border-red-900/30 rounded-lg text-sm font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 transition-all shadow-sm"
+                                >
+                                    <span className="material-symbols-outlined text-lg">delete</span>
+                                    Excluir Vaga
+                                </button>
+                            </div>
+                        )}
 
                         {/* Add Candidate Button */}
                         <button
@@ -1098,6 +1178,136 @@ export const JobDetails: React.FC = () => {
                     </div>
                 )
             }
+            {/* Edit Job Modal (Admin Only) */}
+            {showEditJobModal && (
+                <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 overflow-y-auto">
+                    <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-2xl w-full max-w-4xl my-auto border border-gray-200 dark:border-gray-800 flex flex-col max-h-[90vh]">
+                        <div className="flex justify-between items-center p-6 border-b border-gray-100 dark:border-gray-800">
+                            <div>
+                                <h3 className="text-xl font-bold text-[#111318] dark:text-white">Editar Detalhes da Vaga</h3>
+                                <p className="text-xs text-gray-500 mt-1">Altere as informações globais da oportunidade.</p>
+                            </div>
+                            <button onClick={() => setShowEditJobModal(false)} className="text-gray-400 hover:text-gray-600 transition-colors bg-gray-50 dark:bg-gray-800 p-2 rounded-full">
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleJobEditSubmit} className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <label className="flex flex-col gap-2">
+                                    <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Título da Vaga</span>
+                                    <input
+                                        type="text"
+                                        className="form-input rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-white h-11 px-4 focus:ring-primary focus:border-primary transition-all text-sm"
+                                        value={jobEditForm.title}
+                                        onChange={e => setJobEditForm({ ...jobEditForm, title: e.target.value })}
+                                        required
+                                    />
+                                </label>
+                                <label className="flex flex-col gap-2">
+                                    <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Empresa / Cliente</span>
+                                    <select
+                                        className="form-select rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-white h-11 px-4 focus:ring-primary focus:border-primary transition-all text-sm"
+                                        value={jobEditForm.company}
+                                        onChange={e => setJobEditForm({ ...jobEditForm, company: e.target.value })}
+                                        required
+                                    >
+                                        {clients.map(c => (
+                                            <option key={c.id} value={c.name}>{c.name}</option>
+                                        ))}
+                                    </select>
+                                </label>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <label className="flex flex-col gap-2">
+                                    <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Prazo de Encerramento (Deadline)</span>
+                                    <input
+                                        type="date"
+                                        className="form-input rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-white h-11 px-4 focus:ring-primary focus:border-primary transition-all text-sm"
+                                        value={jobEditForm.deadline}
+                                        onChange={e => setJobEditForm({ ...jobEditForm, deadline: e.target.value })}
+                                    />
+                                </label>
+                                <label className="flex flex-col gap-2">
+                                    <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Prioridade</span>
+                                    <select
+                                        className="form-select rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-white h-11 px-4 focus:ring-primary focus:border-primary transition-all text-sm"
+                                        value={jobEditForm.priority}
+                                        onChange={e => setJobEditForm({ ...jobEditForm, priority: e.target.value as Job['priority'] })}
+                                    >
+                                        <option value="Baixa Prioridade">Baixa</option>
+                                        <option value="Alta Prioridade">Média/Alta</option>
+                                        <option value="Crítico">Crítico</option>
+                                    </select>
+                                </label>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <label className="flex flex-col gap-2">
+                                    <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Salário Mínimo</span>
+                                    <input
+                                        type="number"
+                                        className="form-input rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-white h-11 px-4 focus:ring-primary focus:border-primary transition-all text-sm"
+                                        value={jobEditForm.salaryMin}
+                                        onChange={e => setJobEditForm({ ...jobEditForm, salaryMin: Number(e.target.value) })}
+                                    />
+                                </label>
+                                <label className="flex flex-col gap-2">
+                                    <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Salário Máximo</span>
+                                    <input
+                                        type="number"
+                                        className="form-input rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-white h-11 px-4 focus:ring-primary focus:border-primary transition-all text-sm"
+                                        value={jobEditForm.salaryMax}
+                                        onChange={e => setJobEditForm({ ...jobEditForm, salaryMax: Number(e.target.value) })}
+                                    />
+                                </label>
+                            </div>
+
+                            <label className="flex flex-col gap-2">
+                                <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Requisitos (Tags, separadas por vírgula)</span>
+                                <input
+                                    type="text"
+                                    className="form-input rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-white h-11 px-4 focus:ring-primary focus:border-primary transition-all text-sm"
+                                    value={jobEditForm.requirements}
+                                    onChange={e => setJobEditForm({ ...jobEditForm, requirements: e.target.value })}
+                                />
+                            </label>
+
+                            <label className="flex flex-col gap-2">
+                                <span className="text-sm font-bold text-gray-700 dark:text-gray-300">Descrição Completa</span>
+                                <textarea
+                                    className="form-textarea rounded-xl border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 dark:text-white p-4 focus:ring-primary focus:border-primary transition-all text-sm min-h-[150px] resize-y"
+                                    value={jobEditForm.description}
+                                    onChange={e => setJobEditForm({ ...jobEditForm, description: e.target.value })}
+                                />
+                            </label>
+                        </form>
+
+                        <div className="p-6 border-t border-gray-100 dark:border-gray-800 flex justify-end gap-3 bg-gray-50/50 dark:bg-black/20 rounded-b-2xl">
+                            <button
+                                type="button"
+                                onClick={() => setShowEditJobModal(false)}
+                                className="px-5 py-2.5 text-sm font-bold text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
+                            >
+                                Cancelar
+                            </button>
+                            <button
+                                onClick={handleJobEditSubmit}
+                                disabled={isSavingJob}
+                                className="px-8 py-2.5 bg-primary text-white text-sm font-bold rounded-xl hover:bg-primary/90 transition-all flex items-center gap-2 shadow-lg shadow-primary/20 disabled:opacity-50"
+                            >
+                                {isSavingJob ? (
+                                    <span className="animate-spin size-4 border-2 border-white/30 border-t-white rounded-full"></span>
+                                ) : (
+                                    <span className="material-symbols-outlined text-lg">save</span>
+                                )}
+                                Salvar Alterações
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Toast */}
             {

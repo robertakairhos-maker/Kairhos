@@ -6,11 +6,12 @@ export const Dashboard: React.FC = () => {
     const { jobs, candidates, users, currentUser } = useApp();
     const navigate = useNavigate();
 
-    // Metrics Calculations
-    const totalJobs = jobs.length;
-    const totalCandidates = candidates.length;
-    const activeJobs = jobs.filter(j => j.stage !== 'Vaga fechada' && j.stage !== 'Vaga paralisada').length;
-    const criticalJobs = jobs.filter(j => j.priority === 'Crítico').length;
+    // Metrics Calculations - Excluding trashed jobs
+    const availableJobs = jobs.filter(j => !j.trashed);
+    const totalJobs = availableJobs.length;
+    const totalCandidates = candidates.filter(c => !c.trashed).length;
+    const activeJobs = availableJobs.filter(j => j.stage !== 'Vaga fechada' && j.stage !== 'Vaga paralisada').length;
+    const criticalJobs = availableJobs.filter(j => j.priority === 'Crítico').length;
     const closedJobs = totalJobs - activeJobs;
 
     const candidatesPerJob = totalJobs > 0 ? (totalCandidates / totalJobs).toFixed(1) : '0';
@@ -24,7 +25,7 @@ export const Dashboard: React.FC = () => {
     };
 
     // Get jobs closing soon (sorted by deadline)
-    const urgentJobs = [...jobs]
+    const urgentJobs = [...availableJobs]
         .filter(j => j.deadline && j.stage !== 'Vaga fechada')
         .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
         .slice(0, 5);
@@ -45,13 +46,24 @@ export const Dashboard: React.FC = () => {
                     <h1 className="text-2xl font-bold text-[#111318] dark:text-white">Dashboard Analítico</h1>
                     <p className="text-sm text-slate-500">Visão geral dos indicadores de desempenho de recrutamento.</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <div className="text-right hidden sm:block">
-                        <p className="text-xs font-bold dark:text-white">{currentUser.name}</p>
-                        <p className="text-[10px] text-[#616f89]">{currentUser.role}</p>
-                    </div>
-                    <div className="size-10 rounded-full border-2 border-primary/20 p-0.5">
-                        <img alt="User profile" className="rounded-full size-full object-cover" src={currentUser.avatar} />
+                <div className="flex items-center gap-6">
+                    {currentUser.role === 'Admin' && (
+                        <button
+                            onClick={() => navigate('/jobs/trash')}
+                            className="flex items-center gap-2 text-[#616f89] hover:text-red-500 font-bold text-sm transition-colors"
+                        >
+                            <span className="material-symbols-outlined text-xl">delete</span>
+                            Lixeira
+                        </button>
+                    )}
+                    <div className="flex items-center gap-3">
+                        <div className="text-right hidden sm:block">
+                            <p className="text-xs font-bold dark:text-white">{currentUser.name}</p>
+                            <p className="text-[10px] text-[#616f89]">{currentUser.role}</p>
+                        </div>
+                        <div className="size-10 rounded-full border-2 border-primary/20 p-0.5">
+                            <img alt="User profile" className="rounded-full size-full object-cover" src={currentUser.avatar} />
+                        </div>
                     </div>
                 </div>
             </header>
@@ -135,7 +147,7 @@ export const Dashboard: React.FC = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                                    {jobs.slice(0, 6).map(job => (
+                                    {availableJobs.slice(0, 6).map(job => (
                                         <tr key={job.id} onClick={() => navigate(`/jobs/${job.id}`)} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 cursor-pointer transition-colors">
                                             <td className="px-6 py-4">
                                                 <div className="font-bold text-sm text-[#111318] dark:text-white">{job.title}</div>

@@ -34,8 +34,12 @@ interface AppContextType {
     theme: 'light' | 'dark';
     toggleTheme: () => void;
     logout: () => Promise<void>;
-    addJob: (job: Omit<Job, 'id'>) => void;
-    updateJobStage: (jobId: string, newStage: Job['stage']) => void;
+    addJob: (jobData: Omit<Job, 'id'>) => Promise<string | null>;
+    updateJob: (jobId: string, updates: Partial<Job>) => Promise<void>;
+    updateJobStage: (jobId: string, newStage: Job['stage']) => Promise<void>;
+    trashJob: (jobId: string) => Promise<void>;
+    restoreJob: (jobId: string) => Promise<void>;
+    deleteJobPermanently: (jobId: string) => Promise<void>;
     addCandidate: (candidate: Omit<Candidate, 'id' | 'initials' | 'avatarColor' | 'textColor' | 'badgeColor' | 'badgeText' | 'notes'> & { notes?: Note[] }) => void;
     updateCandidateStage: (candidateId: string, newStage: Candidate['stage']) => void;
     updateCandidate: (candidateId: string, updates: Partial<Candidate>) => void;
@@ -460,7 +464,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             salaryMax: j.salary_max,
                             description: j.description,
                             requirements: j.requirements,
-                            deadline: j.deadline
+                            deadline: j.deadline,
+                            trashed: j.trashed || false
                         };
                     });
                     setJobs(mappedJobs);
@@ -542,36 +547,112 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const addJob = async (jobData: Omit<Job, 'id'>) => {
-        const { data, error } = await supabase.from('jobs').insert({
-            title: jobData.title,
-            company_name: jobData.company,
-            job_stage: 'Vagas Abertas',
-            priority: jobData.priority,
-            tag_label: jobData.tag?.label,
-            tag_color: jobData.tag?.color,
-            progress: 0,
-            days_remaining: jobData.daysRemaining,
-            recruiter_id: jobData.recruiter.id,
-            salary_min: jobData.salaryMin,
-            salary_max: jobData.salaryMax,
-            description: jobData.description,
-            requirements: jobData.requirements,
-            deadline: jobData.deadline
-        }).select().single();
-
-        if (data && !error) {
-            const newJob: Job = {
-                ...jobData,
-                id: data.id,
-                stage: 'Vagas Abertas',
+        try {
+            const { data, error } = await supabase.from('jobs').insert({
+                title: jobData.title,
+                company_name: jobData.company,
+                job_stage: 'Vagas Abertas',
+                priority: jobData.priority,
+                tag_label: jobData.tag?.label,
+                tag_color: jobData.tag?.color,
                 progress: 0,
-                candidatesCount: 0
-            };
-            setJobs(prev => [...prev, newJob]);
+                days_remaining: jobData.daysRemaining,
+                recruiter_id: jobData.recruiter.id,
+                salary_min: jobData.salaryMin,
+                salary_max: jobData.salaryMax,
+                description: jobData.description,
+                requirements: jobData.requirements,
+                deadline: jobData.deadline
+            }).select().single();
 
-            if (newJob.recruiter.id === currentUser.id) {
-                addNotification('Nova Vaga Atribuída', `Você é o responsável pela vaga de ${newJob.title}.`, 'success');
+            if (data && !error) {
+                const newJob: Job = {
+                    ...jobData,
+                    id: data.id,
+                    stage: 'Vagas Abertas',
+                    progress: 0,
+                    candidatesCount: 0,
+                    trashed: false
+                };
+                setJobs(prev => [...prev, newJob]);
+
+                if (newJob.recruiter.id === currentUser.id) {
+                    addNotification('Nova Vaga Atribuída', `Você é o responsável pela vaga de ${newJob.title}.`, 'success');
+                }
+                return data.id;
             }
+            if (error) throw error;
+            return null;
+        } catch (error: any) {
+            console.error('Error adding job:', error);
+            addNotification('Erro ao publicar vaga', error.message || 'Verifique sua conexão.', 'warning');
+            return null;
+        }
+    };
+
+    const updateJob = async (jobId: string, updates: Partial<Job>) => {
+        try {
+            const dbUpdates: any = {};
+            if (updates.title !== undefined) dbUpdates.title = updates.title;
+            if (updates.company !== undefined) dbUpdates.company_name = updates.company;
+            if (updates.stage !== undefined) dbUpdates.job_stage = updates.stage;
+            if (updates.priority !== undefined) dbUpdates.priority = updates.priority;
+            if (updates.tag !== undefined) {
+                dbUpdates.tag_label = updates.tag.label;
+                dbUpdates.tag_color = updates.tag.color;
+            }
+            if (updates.salaryMin !== undefined) dbUpdates.salary_min = updates.salaryMin;
+            if (updates.salaryMax !== undefined) dbUpdates.salary_max = updates.salaryMax;
+            if (updates.description !== undefined) dbUpdates.description = updates.description;
+            if (updates.requirements !== undefined) dbUpdates.requirements = updates.requirements;
+            if (updates.deadline !== undefined) dbUpdates.deadline = updates.deadline;
+
+            const { error } = await supabase.from('jobs').update(dbUpdates).eq('id', jobId);
+            if (error) throw error;
+
+            setJobs(prev => prev.map(j => j.id === jobId ? { ...j, ...updates } : j));
+            addNotification('Vaga Atualizada', 'As alterações foram salvas no banco de dados.', 'success');
+        } catch (error: any) {
+            console.error('Error updating job:', error);
+            addNotification('Erro ao atualizar vaga', error.message, 'warning');
+            throw error;
+        }
+    };
+
+    const trashJob = async (jobId: string) => {
+        try {
+            const { error } = await supabase.from('jobs').update({ trashed: true }).eq('id', jobId);
+            if (error) throw error;
+            setJobs(prev => prev.map(j => j.id === jobId ? { ...j, trashed: true } : j));
+            addNotification('Vaga movida para a lixeira', '', 'info');
+        } catch (error: any) {
+            console.error('Error trashing job:', error);
+            addNotification('Erro ao excluir vaga', error.message, 'warning');
+        }
+    };
+
+    const restoreJob = async (jobId: string) => {
+        try {
+            const { error } = await supabase.from('jobs').update({ trashed: false }).eq('id', jobId);
+            if (error) throw error;
+            setJobs(prev => prev.map(j => j.id === jobId ? { ...j, trashed: false } : j));
+            addNotification('Vaga restaurada', '', 'success');
+        } catch (error: any) {
+            console.error('Error restoring job:', error);
+            addNotification('Erro ao restaurar vaga', error.message, 'warning');
+        }
+    };
+
+    const deleteJobPermanently = async (jobId: string) => {
+        if (!window.confirm('Tem certeza que deseja excluir esta vaga PERMANENTEMENTE? Todos os dados vinculados serão perdidos.')) return;
+        try {
+            const { error } = await supabase.from('jobs').delete().eq('id', jobId);
+            if (error) throw error;
+            setJobs(prev => prev.filter(j => j.id !== jobId));
+            addNotification('Vaga excluída permanentemente', '', 'warning');
+        } catch (error: any) {
+            console.error('Error deleting job permanently:', error);
+            addNotification('Erro ao remover vaga', 'Pode haver candidatos vinculados a esta vaga.', 'warning');
         }
     };
 
@@ -940,7 +1021,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             toggleTheme,
             logout,
             addJob,
+            updateJob,
             updateJobStage,
+            trashJob,
+            restoreJob,
+            deleteJobPermanently,
             addCandidate,
             updateCandidateStage,
             updateCandidate,

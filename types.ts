@@ -36,6 +36,7 @@ export interface Job {
     progress: number;
     daysRemaining?: number;
     deadline?: string;
+    trashed?: boolean;
     recruiter: {
         id: string;
         name: string;
