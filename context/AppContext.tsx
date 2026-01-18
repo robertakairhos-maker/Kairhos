@@ -246,33 +246,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (sessionError) throw sessionError;
 
                 if (session?.user) {
-                    // 1. Immediate update with metadata to unlock UI
-                    if (mounted) {
-                        setCurrentUser({
-                            id: session.user.id,
-                            name: session.user.user_metadata?.name || 'Recrutador',
-                            email: session.user.email || '',
-                            role: (session.user.user_metadata?.role as User['role']) || 'Junior Recruiter',
-                            status: 'Ativo',
-                            avatar: ''
-                        });
-                        setIsAuthenticated(true);
-                    }
-
-                    // 2. Profile refinement
+                    // Fetch profile to get real role and details
                     const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
 
-                    if (mounted && profile) {
-                        setCurrentUser({
-                            id: profile.id,
-                            name: profile.name,
-                            email: profile.email,
-                            role: profile.user_role as User['role'],
-                            status: profile.status as User['status'],
-                            avatar: profile.avatar_url,
-                            bio: profile.bio,
-                            preferences: profile.preferences
-                        });
+                    if (mounted) {
+                        if (profile) {
+                            setCurrentUser({
+                                id: profile.id,
+                                name: profile.name,
+                                email: profile.email,
+                                role: profile.user_role as User['role'],
+                                status: profile.status as User['status'],
+                                avatar: profile.avatar_url,
+                                bio: profile.bio,
+                                preferences: profile.preferences
+                            });
+                            setIsAuthenticated(true);
+                        } else {
+                            // Session exists but no profile - force login to avoid "generic recruiter"
+                            setCurrentUser(GUEST_USER);
+                            setIsAuthenticated(false);
+                        }
                     }
                 } else {
                     if (mounted) {
@@ -282,7 +276,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
             } catch (err) {
                 console.error('Error syncing user session:', err);
-                if (mounted) setCurrentUser(GUEST_USER);
+                if (mounted) {
+                    setCurrentUser(GUEST_USER);
+                    setIsAuthenticated(false);
+                }
             } finally {
                 if (mounted) setLoading(false);
             }
@@ -302,20 +299,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (session?.user) {
-                // 1. Immediate update with metadata to unlock UI (especially for 'SIGNED_IN' event)
-                if (mounted) {
-                    setCurrentUser({
-                        id: session.user.id,
-                        name: session.user.user_metadata?.name || 'Recrutador',
-                        email: session.user.email || '',
-                        role: (session.user.user_metadata?.role as User['role']) || 'Junior Recruiter',
-                        status: 'Ativo',
-                        avatar: ''
-                    });
-                    setIsAuthenticated(true);
-                    // Do NOT setLoading(false) here to avoid the generic recruiter flash
-                }
-
                 try {
                     const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
 
@@ -331,12 +314,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                 bio: profile.bio,
                                 preferences: profile.preferences
                             });
+                            setIsAuthenticated(true);
+                        } else {
+                            // Session exists but no profile - stay at login
+                            setCurrentUser(GUEST_USER);
+                            setIsAuthenticated(false);
                         }
                         setLoading(false);
                     }
                 } catch (err) {
-                    console.error('Profile fetch error in listener:', err);
-                    if (mounted) setLoading(false);
+                    console.error('Auth state refinement error:', err);
+                    if (mounted) {
+                        setCurrentUser(GUEST_USER);
+                        setIsAuthenticated(false);
+                        setLoading(false);
+                    }
                 }
             } else {
                 if (mounted) {
