@@ -217,11 +217,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [currentUser, setCurrentUser] = useState<User>(GUEST_USER);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
     const authRef = useRef(false);
+    const currentUserRef = useRef<User>(GUEST_USER);
+    const lastAuthCallRef = useRef<number>(0);
 
-    // Sync ref with state
+    // Sync refs with state
     useEffect(() => {
         authRef.current = isAuthenticated;
-    }, [isAuthenticated]);
+        currentUserRef.current = currentUser;
+    }, [isAuthenticated, currentUser]);
     const [loading, setLoading] = useState(true);
 
     // Theme Management
@@ -251,10 +254,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         let mounted = true;
 
         const resolveIdentity = async (session: any, source: string) => {
-            console.log(`[Auth] Resolving identity from ${source}. Event: ${session?.user ? 'User present' : 'No user'}`);
+            const currentCallId = Date.now();
+            lastAuthCallRef.current = currentCallId;
+
+            console.log(`[Auth] Resolving identity from ${source}. User: ${session?.user?.email || 'None'}`);
 
             if (!session?.user) {
-                if (mounted) {
+                if (mounted && lastAuthCallRef.current === currentCallId) {
                     console.log('[Auth] No session user, setting guest state.');
                     setCurrentUser(GUEST_USER);
                     setIsAuthenticated(false);
@@ -264,6 +270,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
 
             try {
+                // If we are already authenticated as the correct user, skip DB fetch unless explicitly requested
+                if (authRef.current && currentUserRef.current.id === session.user.id && source !== 'syncUser') {
+                    console.log('[Auth] Already authenticated as current user, skipping profile fetch.');
+                    if (mounted && lastAuthCallRef.current === currentCallId) setLoading(false);
+                    return;
+                }
+
                 console.log(`[Auth] Fetching profile for ${session.user.id}...`);
                 const { data: profile, error: fetchError } = await supabase
                     .from('profiles')
@@ -271,77 +284,78 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     .eq('id', session.user.id)
                     .single();
 
-                if (mounted) {
-                    if (profile) {
-                        console.log('[Auth] Profile found, updating state.');
+                if (!mounted || lastAuthCallRef.current !== currentCallId) return;
+
+                if (profile) {
+                    console.log('[Auth] Profile found, updating state.');
+                    setCurrentUser({
+                        id: profile.id,
+                        name: profile.name,
+                        email: profile.email,
+                        role: profile.user_role as User['role'],
+                        status: profile.status as User['status'],
+                        avatar: profile.avatar_url,
+                        bio: profile.bio,
+                        preferences: profile.preferences
+                    });
+                    setIsAuthenticated(true);
+                } else {
+                    console.warn('[Auth] Profile missing in DB. Attempting lazy creation...');
+
+                    const newProfile = {
+                        id: session.user.id,
+                        name: session.user.user_metadata?.name || 'Novo Recrutador',
+                        email: session.user.email || '',
+                        user_role: (session.user.user_metadata?.role as User['role']) || 'Junior Recruiter',
+                        status: 'Ativo' as User['status'],
+                        preferences: { notifications: true }
+                    };
+
+                    const { data: createdProfile, error: insertError } = await supabase
+                        .from('profiles')
+                        .insert(newProfile)
+                        .select()
+                        .single();
+
+                    if (insertError) {
+                        console.error('[Auth] Lazy creation failed:', insertError);
+                        // Stability: If we have a session but profile creation fails, 
+                        // don't immediately kick them out if they were already in.
+                        if (!authRef.current) {
+                            setCurrentUser(GUEST_USER);
+                            setIsAuthenticated(false);
+                        }
+                    } else if (createdProfile) {
+                        console.log('[Auth] Profile created successfully.');
                         setCurrentUser({
-                            id: profile.id,
-                            name: profile.name,
-                            email: profile.email,
-                            role: profile.user_role as User['role'],
-                            status: profile.status as User['status'],
-                            avatar: profile.avatar_url,
-                            bio: profile.bio,
-                            preferences: profile.preferences
+                            id: createdProfile.id,
+                            name: createdProfile.name,
+                            email: createdProfile.email,
+                            role: createdProfile.user_role as User['role'],
+                            status: createdProfile.status as User['status'],
+                            avatar: createdProfile.avatar_url,
+                            bio: createdProfile.bio,
+                            preferences: createdProfile.preferences
                         });
                         setIsAuthenticated(true);
-                    } else {
-                        console.warn('[Auth] Profile missing in DB. Attempting lazy creation...');
-
-                        const newProfile = {
-                            id: session.user.id,
-                            name: session.user.user_metadata?.name || 'Novo Recrutador',
-                            email: session.user.email || '',
-                            user_role: (session.user.user_metadata?.role as User['role']) || 'Junior Recruiter',
-                            status: 'Ativo' as User['status'],
-                            preferences: { notifications: true }
-                        };
-
-                        const { data: createdProfile, error: insertError } = await supabase
-                            .from('profiles')
-                            .insert(newProfile)
-                            .select()
-                            .single();
-
-                        if (insertError) {
-                            console.error('[Auth] Lazy creation failed:', insertError);
-                            // If we weren't already authenticated, we can't let them in.
-                            // If we WERE authenticated, don't kick them out over a transient error.
-                            if (!authRef.current) {
-                                setCurrentUser(GUEST_USER);
-                                setIsAuthenticated(false);
-                            }
-                        } else if (createdProfile) {
-                            console.log('[Auth] Profile created successfully.');
-                            setCurrentUser({
-                                id: createdProfile.id,
-                                name: createdProfile.name,
-                                email: createdProfile.email,
-                                role: createdProfile.user_role as User['role'],
-                                status: createdProfile.status as User['status'],
-                                avatar: createdProfile.avatar_url,
-                                bio: createdProfile.bio,
-                                preferences: createdProfile.preferences
-                            });
-                            setIsAuthenticated(true);
-                        }
                     }
                 }
             } catch (err) {
                 console.error('[Auth] Identity resolution exception:', err);
-                if (mounted && !authRef.current) {
+                if (mounted && lastAuthCallRef.current === currentCallId && !authRef.current) {
                     setCurrentUser(GUEST_USER);
                     setIsAuthenticated(false);
                 }
             } finally {
-                if (mounted) setLoading(false);
+                if (mounted && lastAuthCallRef.current === currentCallId) setLoading(false);
             }
         };
 
         const syncUser = async () => {
             console.log('[Auth] Running initial session sync...');
             try {
-                const { data: { session } } = await supabase.auth.getSession();
+                const { data: { session }, error } = await supabase.auth.getSession();
+                if (error) throw error;
                 await resolveIdentity(session, 'syncUser');
             } catch (err) {
                 console.error('[Auth] Initial sync error:', err);
@@ -354,11 +368,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             console.log(`[Auth] onAuthStateChange event: ${event}`);
 
-            if (mounted && event === 'SIGNED_IN') {
+            // Only block UI for explicitly signing in
+            if (mounted && event === 'SIGNED_IN' && !authRef.current) {
                 setLoading(true);
             }
 
-            // For token refresh or user updates, we don't necessarily want to block the UI
+            if (mounted && event === 'SIGNED_OUT') {
+                setCurrentUser(GUEST_USER);
+                setIsAuthenticated(false);
+                setLoading(false);
+                return;
+            }
+
             await resolveIdentity(session, `onAuthStateChange(${event})`);
         });
 
