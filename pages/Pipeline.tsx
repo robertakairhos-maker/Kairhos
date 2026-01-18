@@ -115,6 +115,13 @@ export const Pipeline: React.FC = () => {
         setIsDragScroll(false);
     };
 
+    const formatDate = (dateStr?: string) => {
+        if (!dateStr) return null;
+        const date = new Date(dateStr);
+        const localDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+        return localDate.toLocaleDateString('pt-BR');
+    };
+
     // --- Handlers ---
 
     const handleDragStart = (e: React.DragEvent, id: string) => {
@@ -440,9 +447,10 @@ export const Pipeline: React.FC = () => {
                                                         )}
 
                                                         <div className="flex items-center gap-1 text-[10px] font-bold">
-                                                            {job.daysRemaining ? (
+                                                            {job.deadline ? (
                                                                 <span className="text-orange-500 flex items-center gap-1">
-                                                                    <span className="material-symbols-outlined text-xs">schedule</span> {job.daysRemaining} dias rest.
+                                                                    <span className="material-symbols-outlined text-xs">schedule</span>
+                                                                    Prazo: {formatDate(job.deadline)}
                                                                 </span>
                                                             ) : job.priority ? (
                                                                 <span className={job.priority === 'Crítico' ? 'text-red-500 flex items-center gap-1' : 'bg-amber-100 dark:bg-amber-900/50 text-amber-600 px-2 py-0.5 rounded'}>

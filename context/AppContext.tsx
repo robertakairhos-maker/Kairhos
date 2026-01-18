@@ -459,7 +459,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             salaryMin: j.salary_min,
                             salaryMax: j.salary_max,
                             description: j.description,
-                            requirements: j.requirements
+                            requirements: j.requirements,
+                            deadline: j.deadline
                         };
                     });
                     setJobs(mappedJobs);
@@ -554,7 +555,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             salary_min: jobData.salaryMin,
             salary_max: jobData.salaryMax,
             description: jobData.description,
-            requirements: jobData.requirements
+            requirements: jobData.requirements,
+            deadline: jobData.deadline
         }).select().single();
 
         if (data && !error) {

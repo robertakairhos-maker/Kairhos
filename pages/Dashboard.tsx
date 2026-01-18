@@ -15,10 +15,18 @@ export const Dashboard: React.FC = () => {
 
     const candidatesPerJob = totalJobs > 0 ? (totalCandidates / totalJobs).toFixed(1) : '0';
 
-    // Get jobs closing soon (sorted by days remaining)
+    const formatDate = (dateStr?: string) => {
+        if (!dateStr) return 'Sem prazo';
+        const date = new Date(dateStr);
+        // Correcting for timezone offset as input type="date" yields UTC midnight
+        const localDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+        return localDate.toLocaleDateString('pt-BR');
+    };
+
+    // Get jobs closing soon (sorted by deadline)
     const urgentJobs = [...jobs]
-        .filter(j => j.daysRemaining !== undefined && j.daysRemaining <= 10 && j.stage !== 'Vaga fechada')
-        .sort((a, b) => (a.daysRemaining || 0) - (b.daysRemaining || 0))
+        .filter(j => j.deadline && j.stage !== 'Vaga fechada')
+        .sort((a, b) => new Date(a.deadline!).getTime() - new Date(b.deadline!).getTime())
         .slice(0, 5);
 
     // Group jobs by stage for distribution
@@ -223,7 +231,9 @@ export const Dashboard: React.FC = () => {
                                                     <p className="text-[10px] text-slate-500">{job.company}</p>
                                                 </div>
                                             </div>
-                                            <span className="text-xs font-bold text-orange-600 dark:text-orange-400">{job.daysRemaining} dias</span>
+                                            <span className="text-[10px] font-bold text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 px-2 py-1 rounded">
+                                                {formatDate(job.deadline)}
+                                            </span>
                                         </div>
                                     ))
                                 )}

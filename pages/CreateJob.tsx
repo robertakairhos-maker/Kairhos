@@ -61,7 +61,7 @@ export const CreateJob: React.FC = () => {
             priority: formData.priority === 'high' ? 'Crítico' : formData.priority === 'medium' ? 'Alta Prioridade' : undefined,
             tag: { label: 'NEW', color: 'bg-green-50 text-green-600' }, // Default tag for now
             progress: 0,
-            daysRemaining: 30, // Mock calculation
+            deadline: formData.deadline,
             recruiter: {
                 id: recruiter.id,
                 name: recruiter.name,

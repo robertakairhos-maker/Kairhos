@@ -35,6 +35,7 @@ export interface Job {
     tag?: { label: string; color: string };
     progress: number;
     daysRemaining?: number;
+    deadline?: string;
     recruiter: {
         id: string;
         name: string;

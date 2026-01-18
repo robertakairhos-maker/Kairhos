@@ -510,9 +510,16 @@ export const JobDetails: React.FC = () => {
         }
     };
 
-    const formatDate = (isoString: string) => {
+    const formatDateTime = (isoString: string) => {
         const date = new Date(isoString);
         return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    };
+
+    const formatDate = (dateStr?: string) => {
+        if (!dateStr) return 'Indefinido';
+        const date = new Date(dateStr);
+        const localDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+        return localDate.toLocaleDateString('pt-BR');
     };
 
     return (
@@ -613,10 +620,10 @@ export const JobDetails: React.FC = () => {
                             </div>
                         </div>
                         <div className="flex flex-col gap-1 py-4 md:py-0 md:px-6">
-                            <p className="text-[#616f89] text-[10px] font-bold uppercase tracking-wider">Prazo Restante</p>
+                            <p className="text-[#616f89] text-[10px] font-bold uppercase tracking-wider">Prazo de Encerramento</p>
                             <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
                                 <span className="material-symbols-outlined text-xl">calendar_today</span>
-                                <p className="text-sm font-semibold">{job.daysRemaining ? `${job.daysRemaining} dias` : 'Indefinido'}</p>
+                                <p className="text-sm font-semibold">{formatDate(job.deadline)}</p>
                             </div>
                         </div>
                         <div className="flex flex-col gap-1 pt-4 md:pt-0 md:pl-6">
@@ -1027,7 +1034,7 @@ export const JobDetails: React.FC = () => {
                                                     <div className="flex justify-between items-start mb-1">
                                                         <div className="flex flex-col">
                                                             <span className="text-xs font-bold text-[#111318] dark:text-white">{note.authorName}</span>
-                                                            <span className="text-[10px] text-gray-400">{formatDate(note.createdAt)}</span>
+                                                            <span className="text-[10px] text-gray-400">{formatDateTime(note.createdAt)}</span>
                                                         </div>
                                                         {note.authorId === currentUser.id && (
                                                             <div className="flex items-center gap-2">
