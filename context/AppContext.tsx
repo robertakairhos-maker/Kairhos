@@ -755,17 +755,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
 
             const { error: authError } = await adminClient.auth.admin.deleteUser(userId);
-            if (authError) throw authError;
+            if (authError) {
+                console.error('Supabase Auth Delete Error:', authError);
+                throw authError;
+            }
 
             // 2. Delete from Profiles
             const { error: profileError } = await supabase.from('profiles').delete().eq('id', userId);
-            if (profileError) throw profileError;
+            if (profileError) {
+                console.error('Supabase Profile Delete Error:', profileError);
+                throw profileError;
+            }
 
             setUsers(prev => prev.filter(u => u.id !== userId));
             addNotification('Usuário Removido', 'O usuário foi excluído do sistema permanentemente.', 'info');
-        } catch (error) {
-            console.error('Error deleting user:', error);
-            alert('Erro ao excluir usuário no Supabase.');
+        } catch (error: any) {
+            console.error('Error detail in deleteUser:', error);
+            throw error;
         }
     };
 

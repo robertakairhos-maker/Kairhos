@@ -100,7 +100,14 @@ export const UserManagement: React.FC = () => {
         }
 
         if (window.confirm('Tem certeza que deseja remover este usuário? Esta ação removerá o acesso e os dados permanentemente.')) {
-            await deleteUser(id);
+            try {
+                await deleteUser(id);
+                // Notification is handled in context
+            } catch (err: any) {
+                console.error('Erro ao excluir usuário:', err);
+                const errorMessage = err?.message || 'Erro inesperado ao excluir usuário no Supabase.';
+                alert(`Erro ao excluir usuário: ${errorMessage}`);
+            }
         }
     };
 
