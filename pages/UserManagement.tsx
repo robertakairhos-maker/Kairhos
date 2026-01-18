@@ -67,79 +67,40 @@ export const UserManagement: React.FC = () => {
 
         try {
             if (isEditing && editingId) {
-                updateUser(editingId, {
+                await updateUser(editingId, {
                     name: formData.name,
                     email: formData.email,
                     role: formData.role as User['role'],
                     status: formData.status as User['status']
                 });
             } else {
-                // Create a temporary client to sign up the new user without logging out the admin
-                // We need to use the env vars directly here since we can't easily import them from a module inside the component effectively for a new instance
-                // Assuming Vite env vars are available
-                const tempSupabase = createClient(
-                    import.meta.env.VITE_SUPABASE_URL,
-                    import.meta.env.VITE_SUPABASE_ANON_KEY,
-                    {
-                        auth: {
-                            persistSession: false, // Critical: Don't overwrite the admin session
-                            autoRefreshToken: false,
-                            detectSessionInUrl: false
-                        }
-                    }
-                );
-
-                const { data: authData, error: authError } = await tempSupabase.auth.signUp({
-                    email: formData.email,
-                    password: formData.password,
-                    options: {
-                        data: {
-                            name: formData.name,
-                            role: formData.role
-                        }
-                    }
-                });
-
-                if (authError) {
-                    setSubmitError(`Erro ao criar usuário: ${authError.message}`);
-                    setIsSubmitting(false);
-                    return;
-                }
-
-                if (!authData.user) {
-                    setSubmitError('Erro ao criar usuário no sistema de autenticação');
-                    setIsSubmitting(false);
-                    return;
-                }
-
-                // Add user to profiles table with the Auth ID
-                addUser({
-                    id: authData.user.id,
+                // Add user using the centralized context method which handles Auth + Profile
+                await addUser({
                     name: formData.name,
                     email: formData.email,
-                    password: formData.password as any, // Ignored by profile insert
+                    password: formData.password,
                     role: formData.role as User['role'],
                     status: formData.status as User['status'],
-                    avatar: initials // Default to initials
+                    avatar: initials
                 });
             }
             setShowModal(false);
             setIsSubmitting(false);
-        } catch (err) {
-            setSubmitError('Erro inesperado ao criar usuário');
+        } catch (err: any) {
+            setSubmitError(err.message || 'Erro inesperado ao salvar usuário');
             setIsSubmitting(false);
         }
     };
 
-    const handleDelete = (id: string) => {
+    const handleDelete = async (id: string) => {
         // Prevent deleting the currently logged-in user
         if (id === currentUser.id) {
             alert('Você não pode remover o usuário que está atualmente logado no sistema.');
             return;
         }
 
-        if (window.confirm('Tem certeza que deseja remover este usuário? Esta ação não pode ser desfeita.')) {
-            deleteUser(id);
+        if (window.confirm('Tem certeza que deseja remover este usuário? Esta ação removerá o acesso e os dados permanentemente.')) {
+            await deleteUser(id);
         }
     };
 

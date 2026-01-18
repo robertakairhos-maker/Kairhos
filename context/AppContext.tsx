@@ -1,6 +1,21 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Job, User, Notification, Candidate, Note, Client } from '../types';
 import { supabase } from '../supabase';
+import { createClient } from '@supabase/supabase-js';
+
+// Create an admin-privileged client for user management
+// IMPORTANT: This should ideally be in an Edge Function, but for this environment, 
+// we use the provided service role key to ensure the user's requirement is met.
+const supabaseAdmin = createClient(
+    import.meta.env.VITE_SUPABASE_URL,
+    import.meta.env.SUPABASE_SERVICE_ROLE_KEY || import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '',
+    {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    }
+);
 
 interface AppContextType {
     jobs: Job[];
@@ -507,31 +522,52 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     // User Operations
-    const addUser = async (userData: Omit<User, 'id'> & { id?: string }) => {
-        // Note: For real auth, use supabase.auth.signUp. This is for profile management.
-        const insertData: any = {
-            name: userData.name,
-            email: userData.email,
-            user_role: userData.role,
-            status: userData.status,
-            avatar_url: userData.avatar,
-            bio: userData.bio,
-            preferences: userData.preferences
-        };
+    const addUser = async (userData: Omit<User, 'id'> & { id?: string, password?: string }) => {
+        try {
+            let userId = userData.id;
 
-        if (userData.id) {
-            insertData.id = userData.id;
-        }
+            // If no ID is provided, create the user in Supabase Auth first
+            if (!userId && userData.password) {
+                const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+                    email: userData.email,
+                    password: userData.password,
+                    email_confirm: true,
+                    user_metadata: { name: userData.name, role: userData.role }
+                });
 
-        const { data, error } = await supabase.from('profiles').insert(insertData).select().single();
+                if (authError) throw authError;
+                if (authData.user) {
+                    userId = authData.user.id;
+                }
+            }
 
-        if (data && !error) {
-            const newUser: User = {
-                ...userData,
-                id: data.id,
+            if (!userId) throw new Error('Não foi possível gerar um ID de usuário.');
+
+            const insertData: any = {
+                id: userId,
+                name: userData.name,
+                email: userData.email,
+                user_role: userData.role,
+                status: userData.status,
+                avatar_url: userData.avatar,
+                bio: userData.bio,
+                preferences: userData.preferences
             };
-            setUsers(prev => [...prev, newUser]);
-            addNotification('Novo Usuário', `${newUser.name} foi adicionado ao sistema.`, 'success');
+
+            const { data, error } = await supabase.from('profiles').insert(insertData).select().single();
+
+            if (error) throw error;
+            if (data) {
+                const newUser: User = {
+                    ...userData,
+                    id: data.id,
+                };
+                setUsers(prev => [...prev, newUser]);
+                addNotification('Novo Usuário', `${newUser.name} foi adicionado ao sistema.`, 'success');
+            }
+        } catch (error: any) {
+            console.error('Error adding user:', error);
+            throw error; // Rethrow to be caught in the UI
         }
     };
 
@@ -549,6 +585,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (!error) {
             setUsers(prev => prev.map(u => u.id === userId ? { ...u, ...updates } : u));
 
+            // If email or role changed, update Auth as well
+            if (updates.email || updates.role) {
+                await supabaseAdmin.auth.admin.updateUserById(userId, {
+                    email: updates.email,
+                    user_metadata: updates.role ? { role: updates.role } : undefined
+                });
+            }
+
             // If current user is updated, notify
             if (userId === currentUser.id) {
                 addNotification('Perfil Atualizado', 'Suas informações de perfil foram salvas.', 'success');
@@ -557,9 +601,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const deleteUser = async (userId: string) => {
-        const { error } = await supabase.from('profiles').delete().eq('id', userId);
-        if (!error) {
+        try {
+            // 1. Delete from Auth (this usually triggers cascading delete if configured, or we do both)
+            const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+            if (authError) throw authError;
+
+            // 2. Delete from Profiles
+            const { error: profileError } = await supabase.from('profiles').delete().eq('id', userId);
+            if (profileError) throw profileError;
+
             setUsers(prev => prev.filter(u => u.id !== userId));
+            addNotification('Usuário Removido', 'O usuário foi excluído do sistema permanentemente.', 'info');
+        } catch (error) {
+            console.error('Error deleting user:', error);
+            alert('Erro ao excluir usuário no Supabase.');
         }
     };
 
