@@ -233,47 +233,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Handle Authentication & Identity
     useEffect(() => {
+        let mounted = true;
+
         const syncUser = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
+            try {
+                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+                if (sessionError) throw sessionError;
 
-            if (session?.user) {
-                // Fetch profile to get role and other details
-                const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+                if (session?.user) {
+                    // Fetch profile to get role and other details
+                    const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
 
-                if (profile) {
-                    setCurrentUser({
-                        id: profile.id,
-                        name: profile.name,
-                        email: profile.email,
-                        role: profile.user_role as User['role'],
-                        status: profile.status as User['status'],
-                        avatar: profile.avatar_url,
-                        bio: profile.bio,
-                        preferences: profile.preferences
-                    });
+                    if (mounted) {
+                        if (profile) {
+                            setCurrentUser({
+                                id: profile.id,
+                                name: profile.name,
+                                email: profile.email,
+                                role: profile.user_role as User['role'],
+                                status: profile.status as User['status'],
+                                avatar: profile.avatar_url,
+                                bio: profile.bio,
+                                preferences: profile.preferences
+                            });
+                        } else {
+                            // Fallback to metadata if profile not found yet
+                            setCurrentUser({
+                                id: session.user.id,
+                                name: session.user.user_metadata?.name || 'Recrutador',
+                                email: session.user.email || '',
+                                role: (session.user.user_metadata?.role as User['role']) || 'Junior Recruiter',
+                                status: 'Ativo',
+                                avatar: ''
+                            });
+                        }
+                    }
                 } else {
-                    // Fallback to metadata if profile not found yet
-                    setCurrentUser({
-                        id: session.user.id,
-                        name: session.user.user_metadata?.name || 'Recrutador',
-                        email: session.user.email || '',
-                        role: (session.user.user_metadata?.role as User['role']) || 'Junior Recruiter',
-                        status: 'Ativo',
-                        avatar: ''
-                    });
+                    if (mounted) setCurrentUser(GUEST_USER);
                 }
-            } else {
-                setCurrentUser(GUEST_USER);
+            } catch (err) {
+                console.error('Error syncing user session:', err);
+                if (mounted) setCurrentUser(GUEST_USER);
+            } finally {
+                if (mounted) setLoading(false);
             }
-            setLoading(false);
         };
 
         syncUser();
 
+        // Fail-safe: if syncing takes more than 5 seconds, turn off loader
+        const timeout = setTimeout(() => {
+            if (mounted) {
+                setLoading(mainLoading => {
+                    if (mainLoading) console.warn('Identity sync timed out. Proceeding...');
+                    return false;
+                });
+            }
+        }, 5000);
+
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
             if (session?.user) {
                 const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-                if (profile) {
+                if (profile && mounted) {
                     setCurrentUser({
                         id: profile.id,
                         name: profile.name,
@@ -286,11 +307,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     });
                 }
             } else {
-                setCurrentUser(GUEST_USER);
+                if (mounted) setCurrentUser(GUEST_USER);
             }
         });
 
-        return () => subscription.unsubscribe();
+        return () => {
+            mounted = false;
+            subscription.unsubscribe();
+            clearTimeout(timeout);
+        };
     }, []);
 
     // Fetch initial data from Supabase
