@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { Job, User, Notification, Candidate, Note, Client } from '../types';
 import { supabase } from '../supabase';
 import { createClient } from '@supabase/supabase-js';
@@ -212,6 +212,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [users, setUsers] = useState<User[]>([]);
     const [currentUser, setCurrentUser] = useState<User>(GUEST_USER);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const authRef = useRef(false);
+
+    // Sync ref with state
+    useEffect(() => {
+        authRef.current = isAuthenticated;
+    }, [isAuthenticated]);
     const [loading, setLoading] = useState(true);
 
     // Theme Management
@@ -240,9 +246,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => {
         let mounted = true;
 
-        const resolveIdentity = async (session: any) => {
+        const resolveIdentity = async (session: any, source: string) => {
+            console.log(`[Auth] Resolving identity from ${source}. Event: ${session?.user ? 'User present' : 'No user'}`);
+
             if (!session?.user) {
                 if (mounted) {
+                    console.log('[Auth] No session user, setting guest state.');
                     setCurrentUser(GUEST_USER);
                     setIsAuthenticated(false);
                     setLoading(false);
@@ -251,7 +260,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
 
             try {
-                // 1. Try to fetch existing profile
+                console.log(`[Auth] Fetching profile for ${session.user.id}...`);
                 const { data: profile, error: fetchError } = await supabase
                     .from('profiles')
                     .select('*')
@@ -260,6 +269,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
                 if (mounted) {
                     if (profile) {
+                        console.log('[Auth] Profile found, updating state.');
                         setCurrentUser({
                             id: profile.id,
                             name: profile.name,
@@ -272,8 +282,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         });
                         setIsAuthenticated(true);
                     } else {
-                        // 2. Lazy Profile Creation: Auth exists but profile is missing
-                        console.warn('Profile not found for authenticated user. Attempting lazy creation...', session.user.id);
+                        console.warn('[Auth] Profile missing in DB. Attempting lazy creation...');
 
                         const newProfile = {
                             id: session.user.id,
@@ -291,12 +300,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             .single();
 
                         if (insertError) {
-                            console.error('Lazy profile creation failed:', insertError);
-                            // If we can't create it, we can't let them in safely as an authenticated user
-                            setCurrentUser(GUEST_USER);
-                            setIsAuthenticated(false);
+                            console.error('[Auth] Lazy creation failed:', insertError);
+                            // If we weren't already authenticated, we can't let them in.
+                            // If we WERE authenticated, don't kick them out over a transient error.
+                            if (!authRef.current) {
+                                setCurrentUser(GUEST_USER);
+                                setIsAuthenticated(false);
+                            }
                         } else if (createdProfile) {
-                            console.log('Lazy profile created successfully:', createdProfile.id);
+                            console.log('[Auth] Profile created successfully.');
                             setCurrentUser({
                                 id: createdProfile.id,
                                 name: createdProfile.name,
@@ -312,8 +324,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     }
                 }
             } catch (err) {
-                console.error('Identity resolution failed:', err);
-                if (mounted) {
+                console.error('[Auth] Identity resolution exception:', err);
+                if (mounted && !authRef.current) {
                     setCurrentUser(GUEST_USER);
                     setIsAuthenticated(false);
                 }
@@ -323,11 +335,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
 
         const syncUser = async () => {
+            console.log('[Auth] Running initial session sync...');
             try {
                 const { data: { session } } = await supabase.auth.getSession();
-                await resolveIdentity(session);
+                await resolveIdentity(session, 'syncUser');
             } catch (err) {
-                console.error('Initial sync error:', err);
+                console.error('[Auth] Initial sync error:', err);
                 if (mounted) setLoading(false);
             }
         };
@@ -335,10 +348,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         syncUser();
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log(`[Auth] onAuthStateChange event: ${event}`);
+
             if (mounted && event === 'SIGNED_IN') {
                 setLoading(true);
             }
-            await resolveIdentity(session);
+
+            // For token refresh or user updates, we don't necessarily want to block the UI
+            await resolveIdentity(session, `onAuthStateChange(${event})`);
         });
 
         return () => {
