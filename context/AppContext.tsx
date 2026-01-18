@@ -313,23 +313,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         avatar: ''
                     });
                     setIsAuthenticated(true);
-                    setLoading(false); // Immediate unlock
+                    // Do NOT setLoading(false) here to avoid the generic recruiter flash
                 }
 
-                // 2. Profile refinement
-                const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+                try {
+                    const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
 
-                if (mounted && profile) {
-                    setCurrentUser({
-                        id: profile.id,
-                        name: profile.name,
-                        email: profile.email,
-                        role: profile.user_role as User['role'],
-                        status: profile.status as User['status'],
-                        avatar: profile.avatar_url,
-                        bio: profile.bio,
-                        preferences: profile.preferences
-                    });
+                    if (mounted) {
+                        if (profile) {
+                            setCurrentUser({
+                                id: profile.id,
+                                name: profile.name,
+                                email: profile.email,
+                                role: profile.user_role as User['role'],
+                                status: profile.status as User['status'],
+                                avatar: profile.avatar_url,
+                                bio: profile.bio,
+                                preferences: profile.preferences
+                            });
+                        }
+                        setLoading(false);
+                    }
+                } catch (err) {
+                    console.error('Profile fetch error in listener:', err);
+                    if (mounted) setLoading(false);
                 }
             } else {
                 if (mounted) {
@@ -748,30 +755,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const deleteUser = async (userId: string) => {
         try {
-            // 1. Delete from Auth
+            // 1. Check if administrative client is available
             const adminClient = getSupabaseAdmin();
             if (!adminClient) {
-                throw new Error('Configuração administrativa ausente (VITE_SUPABASE_SERVICE_ROLE_KEY não encontrada).');
+                throw new Error('Acesso negado. Esta funcionalidade requer a Service Role Key configurada (VITE_SUPABASE_SERVICE_ROLE_KEY).');
             }
 
+            // 2. Delete from Profiles first (this usually fails if there are foreign key constraints like in 'jobs')
+            const { error: profileError } = await supabase.from('profiles').delete().eq('id', userId);
+
+            if (profileError) {
+                if (profileError.message?.includes('foreign key constraint')) {
+                    throw new Error('Não é possível excluir este usuário pois ele possui registros vinculados (como vagas ou candidatos atribuídos). Tente desativar o usuário em vez de excluí-lo.');
+                }
+                console.error('Supabase Profile Delete Error:', profileError);
+                throw new Error(`Erro no banco de dados: ${profileError.message || 'Falha ao remover perfil'}`);
+            }
+
+            // 3. Delete from Auth (Internal System)
             const { error: authError } = await adminClient.auth.admin.deleteUser(userId);
             if (authError) {
                 console.error('Supabase Auth Delete Error:', authError);
-                throw authError;
-            }
-
-            // 2. Delete from Profiles
-            const { error: profileError } = await supabase.from('profiles').delete().eq('id', userId);
-            if (profileError) {
-                console.error('Supabase Profile Delete Error:', profileError);
-                throw profileError;
+                // If profile was deleted but auth failed, it's an inconsistent state but we should report it.
+                throw new Error(`Erro ao remover acesso (Auth): ${authError.message || 'Falha no sistema de autenticação'}`);
             }
 
             setUsers(prev => prev.filter(u => u.id !== userId));
             addNotification('Usuário Removido', 'O usuário foi excluído do sistema permanentemente.', 'info');
         } catch (error: any) {
             console.error('Error detail in deleteUser:', error);
-            throw error;
+            throw error; // Let the UI handle the specific error message
         }
     };
 
