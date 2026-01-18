@@ -3,19 +3,22 @@ import { Job, User, Notification, Candidate, Note, Client } from '../types';
 import { supabase } from '../supabase';
 import { createClient } from '@supabase/supabase-js';
 
-// Create an admin-privileged client for user management
-// IMPORTANT: This should ideally be in an Edge Function, but for this environment, 
-// we use the provided service role key to ensure the user's requirement is met.
-const supabaseAdmin = createClient(
-    import.meta.env.VITE_SUPABASE_URL,
-    import.meta.env.SUPABASE_SERVICE_ROLE_KEY || import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '',
-    {
+// Helper to get admin client only when needed
+const getSupabaseAdmin = () => {
+    const url = import.meta.env.VITE_SUPABASE_URL;
+    const key = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || ''; // Only VITE_ prefixed vars are available in browser
+
+    if (!url || !key) {
+        return null;
+    }
+
+    return createClient(url, key, {
         auth: {
             autoRefreshToken: false,
             persistSession: false
         }
-    }
-);
+    });
+};
 
 interface AppContextType {
     jobs: Job[];
@@ -528,7 +531,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             // If no ID is provided, create the user in Supabase Auth first
             if (!userId && userData.password) {
-                const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+                const adminClient = getSupabaseAdmin();
+                if (!adminClient) {
+                    throw new Error('Configuração administrativa ausente. Verifique a Service Role Key.');
+                }
+
+                const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
                     email: userData.email,
                     password: userData.password,
                     email_confirm: true,
@@ -587,10 +595,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
             // If email or role changed, update Auth as well
             if (updates.email || updates.role) {
-                await supabaseAdmin.auth.admin.updateUserById(userId, {
-                    email: updates.email,
-                    user_metadata: updates.role ? { role: updates.role } : undefined
-                });
+                const adminClient = getSupabaseAdmin();
+                if (adminClient) {
+                    await adminClient.auth.admin.updateUserById(userId, {
+                        email: updates.email,
+                        user_metadata: updates.role ? { role: updates.role } : undefined
+                    });
+                }
             }
 
             // If current user is updated, notify
@@ -602,8 +613,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     const deleteUser = async (userId: string) => {
         try {
-            // 1. Delete from Auth (this usually triggers cascading delete if configured, or we do both)
-            const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+            // 1. Delete from Auth
+            const adminClient = getSupabaseAdmin();
+            if (!adminClient) {
+                throw new Error('Configuração administrativa ausente (VITE_SUPABASE_SERVICE_ROLE_KEY não encontrada).');
+            }
+
+            const { error: authError } = await adminClient.auth.admin.deleteUser(userId);
             if (authError) throw authError;
 
             // 2. Delete from Profiles
