@@ -241,32 +241,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (sessionError) throw sessionError;
 
                 if (session?.user) {
-                    // Fetch profile to get role and other details
+                    // 1. Immediate update with metadata to unlock UI
+                    if (mounted) {
+                        setCurrentUser({
+                            id: session.user.id,
+                            name: session.user.user_metadata?.name || 'Recrutador',
+                            email: session.user.email || '',
+                            role: (session.user.user_metadata?.role as User['role']) || 'Junior Recruiter',
+                            status: 'Ativo',
+                            avatar: ''
+                        });
+                    }
+
+                    // 2. Profile refinement
                     const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
 
-                    if (mounted) {
-                        if (profile) {
-                            setCurrentUser({
-                                id: profile.id,
-                                name: profile.name,
-                                email: profile.email,
-                                role: profile.user_role as User['role'],
-                                status: profile.status as User['status'],
-                                avatar: profile.avatar_url,
-                                bio: profile.bio,
-                                preferences: profile.preferences
-                            });
-                        } else {
-                            // Fallback to metadata if profile not found yet
-                            setCurrentUser({
-                                id: session.user.id,
-                                name: session.user.user_metadata?.name || 'Recrutador',
-                                email: session.user.email || '',
-                                role: (session.user.user_metadata?.role as User['role']) || 'Junior Recruiter',
-                                status: 'Ativo',
-                                avatar: ''
-                            });
-                        }
+                    if (mounted && profile) {
+                        setCurrentUser({
+                            id: profile.id,
+                            name: profile.name,
+                            email: profile.email,
+                            role: profile.user_role as User['role'],
+                            status: profile.status as User['status'],
+                            avatar: profile.avatar_url,
+                            bio: profile.bio,
+                            preferences: profile.preferences
+                        });
                     }
                 } else {
                     if (mounted) setCurrentUser(GUEST_USER);
@@ -293,35 +293,39 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (session?.user) {
-                // Try to get profile, but fallback to metadata to avoid infinite guest state
+                // 1. Immediate update with metadata to unlock UI (especially for 'SIGNED_IN' event)
+                if (mounted) {
+                    setCurrentUser({
+                        id: session.user.id,
+                        name: session.user.user_metadata?.name || 'Recrutador',
+                        email: session.user.email || '',
+                        role: (session.user.user_metadata?.role as User['role']) || 'Junior Recruiter',
+                        status: 'Ativo',
+                        avatar: ''
+                    });
+                    setLoading(false); // Immediate unlock
+                }
+
+                // 2. Profile refinement
                 const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
 
-                if (mounted) {
-                    if (profile) {
-                        setCurrentUser({
-                            id: profile.id,
-                            name: profile.name,
-                            email: profile.email,
-                            role: profile.user_role as User['role'],
-                            status: profile.status as User['status'],
-                            avatar: profile.avatar_url,
-                            bio: profile.bio,
-                            preferences: profile.preferences
-                        });
-                    } else {
-                        // Crucial: Update identity even without profile so isAuthenticated becomes true
-                        setCurrentUser({
-                            id: session.user.id,
-                            name: session.user.user_metadata?.name || 'Recrutador',
-                            email: session.user.email || '',
-                            role: (session.user.user_metadata?.role as User['role']) || 'Junior Recruiter',
-                            status: 'Ativo',
-                            avatar: ''
-                        });
-                    }
+                if (mounted && profile) {
+                    setCurrentUser({
+                        id: profile.id,
+                        name: profile.name,
+                        email: profile.email,
+                        role: profile.user_role as User['role'],
+                        status: profile.status as User['status'],
+                        avatar: profile.avatar_url,
+                        bio: profile.bio,
+                        preferences: profile.preferences
+                    });
                 }
             } else {
-                if (mounted) setCurrentUser(GUEST_USER);
+                if (mounted) {
+                    setCurrentUser(GUEST_USER);
+                    setLoading(false);
+                }
             }
         });
 

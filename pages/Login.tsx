@@ -34,9 +34,10 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
             }
 
             if (data.user) {
+                // The AppContext observer will trigger the redirect.
+                // We'll set loading to false to be safe, though the component should unmount.
+                setLoading(false);
                 onLogin();
-                // We keep loading as true briefly until redirected, 
-                // but the observer in AppContext should trigger soon.
             }
         } catch (err) {
             setError('Erro ao conectar com o servidor');
