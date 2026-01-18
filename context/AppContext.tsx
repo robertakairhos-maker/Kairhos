@@ -240,42 +240,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => {
         let mounted = true;
 
-        const syncUser = async () => {
+        const resolveIdentity = async (session: any) => {
+            if (!session?.user) {
+                if (mounted) {
+                    setCurrentUser(GUEST_USER);
+                    setIsAuthenticated(false);
+                    setLoading(false);
+                }
+                return;
+            }
+
             try {
-                const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-                if (sessionError) throw sessionError;
+                const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
 
-                if (session?.user) {
-                    // Fetch profile to get real role and details
-                    const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-
-                    if (mounted) {
-                        if (profile) {
-                            setCurrentUser({
-                                id: profile.id,
-                                name: profile.name,
-                                email: profile.email,
-                                role: profile.user_role as User['role'],
-                                status: profile.status as User['status'],
-                                avatar: profile.avatar_url,
-                                bio: profile.bio,
-                                preferences: profile.preferences
-                            });
-                            setIsAuthenticated(true);
-                        } else {
-                            // Session exists but no profile - stay at login
-                            setCurrentUser(GUEST_USER);
-                            setIsAuthenticated(false);
-                        }
-                    }
-                } else {
-                    if (mounted) {
+                if (mounted) {
+                    if (profile) {
+                        setCurrentUser({
+                            id: profile.id,
+                            name: profile.name,
+                            email: profile.email,
+                            role: profile.user_role as User['role'],
+                            status: profile.status as User['status'],
+                            avatar: profile.avatar_url,
+                            bio: profile.bio,
+                            preferences: profile.preferences
+                        });
+                        setIsAuthenticated(true);
+                    } else {
+                        console.warn('Profile not found for authenticated user:', session.user.id);
                         setCurrentUser(GUEST_USER);
                         setIsAuthenticated(false);
                     }
                 }
             } catch (err) {
-                console.error('Error syncing user session:', err);
+                console.error('Identity resolution failed:', err);
                 if (mounted) {
                     setCurrentUser(GUEST_USER);
                     setIsAuthenticated(false);
@@ -285,71 +283,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
         };
 
+        const syncUser = async () => {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                await resolveIdentity(session);
+            } catch (err) {
+                console.error('Initial sync error:', err);
+                if (mounted) setLoading(false);
+            }
+        };
+
         syncUser();
 
-        // Fail-safe: if syncing takes more than 5 seconds, turn off loader
-        const timeout = setTimeout(() => {
-            if (mounted) {
-                setLoading(mainLoading => {
-                    if (mainLoading) console.warn('Identity sync timed out. Proceeding...');
-                    return false;
-                });
-            }
-        }, 5000);
-
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            if (session?.user) {
-                // For login, show the transition splash
-                if (mounted && event === 'SIGNED_IN') {
-                    setLoading(true);
-                }
-
-                try {
-                    const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-
-                    if (mounted) {
-                        if (profile) {
-                            setCurrentUser({
-                                id: profile.id,
-                                name: profile.name,
-                                email: profile.email,
-                                role: profile.user_role as User['role'],
-                                status: profile.status as User['status'],
-                                avatar: profile.avatar_url,
-                                bio: profile.bio,
-                                preferences: profile.preferences
-                            });
-                            setIsAuthenticated(true);
-                        } else {
-                            // No profile found - stay at login
-                            setCurrentUser(GUEST_USER);
-                            setIsAuthenticated(false);
-                        }
-                        setLoading(false);
-                    }
-                } catch (err) {
-                    console.error('Auth state change error:', err);
-                    if (mounted) {
-                        setCurrentUser(GUEST_USER);
-                        setIsAuthenticated(false);
-                        setLoading(false);
-                    }
-                }
-            } else {
-                if (mounted) {
-                    setCurrentUser(GUEST_USER);
-                    setIsAuthenticated(false);
-                    setLoading(false);
-                }
+            if (mounted && event === 'SIGNED_IN') {
+                setLoading(true);
             }
+            await resolveIdentity(session);
         });
 
         return () => {
             mounted = false;
             subscription.unsubscribe();
-            clearTimeout(timeout);
         };
     }, []);
+
+    // Watchdog for infinite loading
+    useEffect(() => {
+        if (loading) {
+            const watchdog = setTimeout(() => {
+                console.warn('Loading Watchdog: Force-clearing infinite splash.');
+                setLoading(false);
+            }, 7000);
+            return () => clearTimeout(watchdog);
+        }
+    }, [loading]);
 
     const logout = async () => {
         try {
