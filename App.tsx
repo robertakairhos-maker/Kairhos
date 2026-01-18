@@ -13,8 +13,7 @@ import { Layout } from './components/Layout';
 import { AppProvider, useApp } from './context/AppContext';
 
 const AppContent: React.FC = () => {
-  const { currentUser, loading, logout } = useApp();
-  const isAuthenticated = currentUser.id !== 'guest';
+  const { currentUser, loading, logout, isAuthenticated } = useApp();
 
   const handleLogout = async () => {
     await logout();

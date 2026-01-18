@@ -29,6 +29,7 @@ interface AppContextType {
     clients: Client[];
     notifications: Notification[];
     currentUser: User;
+    isAuthenticated: boolean;
     loading: boolean;
     theme: 'light' | 'dark';
     toggleTheme: () => void;
@@ -210,6 +211,7 @@ const INITIAL_CANDIDATES: Candidate[] = [
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [users, setUsers] = useState<User[]>([]);
     const [currentUser, setCurrentUser] = useState<User>(GUEST_USER);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
     const [loading, setLoading] = useState(true);
 
     // Theme Management
@@ -254,6 +256,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             status: 'Ativo',
                             avatar: ''
                         });
+                        setIsAuthenticated(true);
                     }
 
                     // 2. Profile refinement
@@ -272,7 +275,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         });
                     }
                 } else {
-                    if (mounted) setCurrentUser(GUEST_USER);
+                    if (mounted) {
+                        setCurrentUser(GUEST_USER);
+                        setIsAuthenticated(false);
+                    }
                 }
             } catch (err) {
                 console.error('Error syncing user session:', err);
@@ -306,6 +312,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         status: 'Ativo',
                         avatar: ''
                     });
+                    setIsAuthenticated(true);
                     setLoading(false); // Immediate unlock
                 }
 
@@ -327,6 +334,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             } else {
                 if (mounted) {
                     setCurrentUser(GUEST_USER);
+                    setIsAuthenticated(false);
                     setLoading(false);
                 }
             }
@@ -343,6 +351,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
             await supabase.auth.signOut();
             setCurrentUser(GUEST_USER);
+            setIsAuthenticated(false);
             // Clear any caches or data if needed
             setJobs([]);
             setCandidates([]);
@@ -822,6 +831,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             clients,
             notifications,
             currentUser,
+            isAuthenticated,
             loading,
             theme,
             toggleTheme,
