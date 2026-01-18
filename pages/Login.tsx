@@ -35,6 +35,8 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
             if (data.user) {
                 onLogin();
+                // We keep loading as true briefly until redirected, 
+                // but the observer in AppContext should trigger soon.
             }
         } catch (err) {
             setError('Erro ao conectar com o servidor');

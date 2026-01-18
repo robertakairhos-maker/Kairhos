@@ -291,20 +291,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }
         }, 5000);
 
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (session?.user) {
+                // Try to get profile, but fallback to metadata to avoid infinite guest state
                 const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
-                if (profile && mounted) {
-                    setCurrentUser({
-                        id: profile.id,
-                        name: profile.name,
-                        email: profile.email,
-                        role: profile.user_role as User['role'],
-                        status: profile.status as User['status'],
-                        avatar: profile.avatar_url,
-                        bio: profile.bio,
-                        preferences: profile.preferences
-                    });
+
+                if (mounted) {
+                    if (profile) {
+                        setCurrentUser({
+                            id: profile.id,
+                            name: profile.name,
+                            email: profile.email,
+                            role: profile.user_role as User['role'],
+                            status: profile.status as User['status'],
+                            avatar: profile.avatar_url,
+                            bio: profile.bio,
+                            preferences: profile.preferences
+                        });
+                    } else {
+                        // Crucial: Update identity even without profile so isAuthenticated becomes true
+                        setCurrentUser({
+                            id: session.user.id,
+                            name: session.user.user_metadata?.name || 'Recrutador',
+                            email: session.user.email || '',
+                            role: (session.user.user_metadata?.role as User['role']) || 'Junior Recruiter',
+                            status: 'Ativo',
+                            avatar: ''
+                        });
+                    }
                 }
             } else {
                 if (mounted) setCurrentUser(GUEST_USER);
