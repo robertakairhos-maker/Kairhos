@@ -113,9 +113,13 @@ const AppContent: React.FC = () => {
         path="/users"
         element={
           isAuthenticated ? (
-            <Layout onLogout={handleLogout}>
-              <UserManagement />
-            </Layout>
+            currentUser.role === 'Admin' ? (
+              <Layout onLogout={handleLogout}>
+                <UserManagement />
+              </Layout>
+            ) : (
+              <Navigate to="/dashboard" replace />
+            )
           ) : (
             <Navigate to="/login" replace />
           )

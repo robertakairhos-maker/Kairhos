@@ -367,19 +367,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     setJobs(mappedJobs);
                 }
 
-                // Fetch Candidates - Only for visible jobs
-                const visibleJobIds = mappedJobs.map(j => j.id);
+                // Fetch Candidates - All candidates are visible to everyone
                 let candidatesQuery = supabase.from('candidates').select('*');
-
-                if (currentUser && currentUser.role !== 'Admin') {
-                    if (visibleJobIds.length > 0) {
-                        candidatesQuery = candidatesQuery.in('job_id', visibleJobIds);
-                    } else {
-                        // If no jobs are visible, no candidates should be visible
-                        setCandidates([]);
-                        return;
-                    }
-                }
 
                 const { data: candidatesData } = await candidatesQuery;
                 if (candidatesData) {
