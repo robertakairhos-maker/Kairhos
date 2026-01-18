@@ -5,8 +5,10 @@ import { createClient } from '@supabase/supabase-js';
 
 // Helper to get admin client only when needed
 const getSupabaseAdmin = () => {
-    const url = import.meta.env.VITE_SUPABASE_URL;
-    const key = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || ''; // Only VITE_ prefixed vars are available in browser
+    // Use a more robust check for environments where import.meta.env might be problematic for types
+    const env = (import.meta as any).env || {};
+    const url = env.VITE_SUPABASE_URL;
+    const key = env.VITE_SUPABASE_SERVICE_ROLE_KEY || '';
 
     if (!url || !key) {
         return null;
@@ -30,6 +32,7 @@ interface AppContextType {
     loading: boolean;
     theme: 'light' | 'dark';
     toggleTheme: () => void;
+    logout: () => Promise<void>;
     addJob: (job: Omit<Job, 'id'>) => void;
     updateJobStage: (jobId: string, newStage: Job['stage']) => void;
     addCandidate: (candidate: Omit<Candidate, 'id' | 'initials' | 'avatarColor' | 'textColor' | 'badgeColor' | 'badgeText' | 'notes'> & { notes?: Note[] }) => void;
@@ -336,7 +339,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
     }, []);
 
-    // Fetch initial data from Supabase
+    const logout = async () => {
+        try {
+            await supabase.auth.signOut();
+            setCurrentUser(GUEST_USER);
+            // Clear any caches or data if needed
+            setJobs([]);
+            setCandidates([]);
+            setNotifications([]);
+            // Force a slight delay or redirect if state doesn't propagate
+            window.location.hash = '#/login';
+        } catch (err) {
+            console.error('Logout error:', err);
+            // Fallback: force redirect
+            window.location.hash = '#/login';
+        }
+    };
     useEffect(() => {
         const fetchData = async () => {
             try {
@@ -807,6 +825,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             loading,
             theme,
             toggleTheme,
+            logout,
             addJob,
             updateJobStage,
             addCandidate,

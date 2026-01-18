@@ -13,11 +13,11 @@ import { Layout } from './components/Layout';
 import { AppProvider, useApp } from './context/AppContext';
 
 const AppContent: React.FC = () => {
-  const { currentUser, loading } = useApp();
+  const { currentUser, loading, logout } = useApp();
   const isAuthenticated = currentUser.id !== 'guest';
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await logout();
   };
 
   if (loading) {
