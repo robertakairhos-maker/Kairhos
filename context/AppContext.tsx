@@ -811,41 +811,102 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Client Operations
     const addClient = async (clientData: Omit<Client, 'id'>) => {
-        const { data, error } = await supabase.from('clients').insert({
-            name: clientData.name,
-            industry: clientData.industry,
-            contact_name: clientData.contactName,
-            contact_email: clientData.contactEmail,
-            phone: clientData.phone,
-            status: clientData.status,
-            contract_value: clientData.contractValue,
-            logo_url: clientData.logo
-        }).select().single();
+        try {
+            const { data, error } = await supabase.from('clients').insert({
+                name: clientData.name,
+                industry: clientData.industry,
+                contact_name: clientData.contactName,
+                contact_email: clientData.contactEmail,
+                phone: clientData.phone,
+                status: clientData.status,
+                contract_value: clientData.contractValue,
+                logo_url: clientData.logo
+            }).select().single();
 
-        if (data && !error) {
-            const newClient: Client = {
-                ...clientData,
-                id: data.id,
-            };
-            setClients(prev => [...prev, newClient]);
-            addNotification('Novo Cliente', `${newClient.name} foi adicionado à carteira.`, 'success');
+            if (error) throw error;
+            if (data) {
+                const newClient: Client = {
+                    ...clientData,
+                    id: data.id,
+                };
+                setClients(prev => [...prev, newClient]);
+                addNotification('Novo Cliente', `${newClient.name} foi adicionado à carteira.`, 'success');
+                return data.id;
+            }
+        } catch (error: any) {
+            console.error('Error adding client:', error);
+            addNotification('Erro', 'Não foi possível adicionar o cliente.', 'warning');
+            throw error;
         }
     };
 
     const updateClient = async (clientId: string, updates: Partial<Client>) => {
-        const dbUpdates: any = {};
-        if (updates.name) dbUpdates.name = updates.name;
-        if (updates.industry) dbUpdates.industry = updates.industry;
-        if (updates.contactName) dbUpdates.contact_name = updates.contactName;
-        if (updates.contactEmail) dbUpdates.contact_email = updates.contactEmail;
-        if (updates.phone) dbUpdates.phone = updates.phone;
-        if (updates.status) dbUpdates.status = updates.status;
-        if (updates.contractValue) dbUpdates.contract_value = updates.contractValue;
-        if (updates.logo) dbUpdates.logo_url = updates.logo;
+        try {
+            const dbUpdates: any = {};
+            if (updates.name !== undefined) dbUpdates.name = updates.name;
+            if (updates.industry !== undefined) dbUpdates.industry = updates.industry;
+            if (updates.contactName !== undefined) dbUpdates.contact_name = updates.contactName;
+            if (updates.contactEmail !== undefined) dbUpdates.contact_email = updates.contactEmail;
+            if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
+            if (updates.status !== undefined) dbUpdates.status = updates.status;
+            if (updates.contractValue !== undefined) dbUpdates.contract_value = updates.contractValue;
+            if (updates.logo !== undefined) dbUpdates.logo_url = updates.logo;
 
-        const { error } = await supabase.from('clients').update(dbUpdates).eq('id', clientId);
-        if (!error) {
+            const { error } = await supabase.from('clients').update(dbUpdates).eq('id', clientId);
+            if (error) throw error;
+
             setClients(prev => prev.map(c => c.id === clientId ? { ...c, ...updates } : c));
+            addNotification('Cliente Atualizado', 'As informações do cliente foram salvas.', 'success');
+        } catch (error: any) {
+            console.error('Error updating client:', error);
+            addNotification('Erro', 'Não foi possível atualizar o cliente.', 'warning');
+            throw error;
+        }
+    };
+
+    const deleteClient = async (clientId: string) => {
+        try {
+            const { error } = await supabase.from('clients').delete().eq('id', clientId);
+            if (error) {
+                if (error.message?.includes('foreign key constraint')) {
+                    throw new Error('Não é possível excluir este cliente pois ele possui vagas vinculadas. Remova ou altere as vagas antes de excluir o cliente.');
+                }
+                throw error;
+            }
+            setClients(prev => prev.filter(c => c.id !== clientId));
+            addNotification('Cliente Removido', 'O cliente e seus dados foram excluídos.', 'info');
+        } catch (error: any) {
+            console.error('Error deleting client:', error);
+            alert(error.message || 'Erro ao excluir cliente.');
+        }
+    };
+
+    const uploadClientLogo = async (clientId: string, file: File): Promise<string | null> => {
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${clientId}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+            const filePath = `logos/${fileName}`;
+
+            // Upload the file to the 'logos' bucket
+            const { data, error: uploadError } = await supabase.storage
+                .from('logos')
+                .upload(filePath, file, { upsert: true });
+
+            if (uploadError) throw uploadError;
+
+            // Get the public URL
+            const { data: { publicUrl } } = supabase.storage
+                .from('logos')
+                .getPublicUrl(filePath);
+
+            // Update client record with the new logo URL
+            await updateClient(clientId, { logo: publicUrl });
+
+            return publicUrl;
+        } catch (error: any) {
+            console.error('Error uploading logo:', error);
+            addNotification('Erro no Upload', 'Não foi possível carregar a logo do cliente.', 'warning');
+            return null;
         }
     };
 
@@ -889,6 +950,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             deleteUser,
             addClient,
             updateClient,
+            deleteClient,
+            uploadClientLogo,
             markNotificationAsRead,
             clearNotifications
         }}>

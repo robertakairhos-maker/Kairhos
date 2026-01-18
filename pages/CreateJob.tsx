@@ -5,10 +5,11 @@ import { Job } from '../types';
 
 export const CreateJob: React.FC = () => {
     const navigate = useNavigate();
-    const { addJob, users, currentUser } = useApp();
+    const { addJob, users, currentUser, clients } = useApp();
 
     const [formData, setFormData] = useState({
         title: '',
+        clientId: '',
         company: '',
         deadline: '',
         priority: 'medium',
@@ -21,7 +22,17 @@ export const CreateJob: React.FC = () => {
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
         const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
+
+        if (name === 'clientId') {
+            const selectedClient = clients.find(c => c.id === value);
+            setFormData(prev => ({
+                ...prev,
+                clientId: value,
+                company: selectedClient ? selectedClient.name : ''
+            }));
+        } else {
+            setFormData(prev => ({ ...prev, [name]: value }));
+        }
     };
 
     const handlePriorityChange = (val: string) => {
@@ -100,16 +111,25 @@ export const CreateJob: React.FC = () => {
                             />
                         </label>
                         <label className="flex flex-col gap-2">
-                            <span className="text-[#111318] dark:text-gray-200 text-sm font-bold">Nome do Cliente / Empresa</span>
-                            <input
-                                name="company"
-                                value={formData.company}
-                                onChange={handleInputChange}
-                                type="text"
-                                className="form-input w-full rounded-lg border-[#dbdfe6] dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white h-12 px-4 focus:ring-primary focus:border-primary"
-                                placeholder="Selecione ou digite a empresa"
-                                required
-                            />
+                            <span className="text-[#111318] dark:text-gray-200 text-sm font-bold">Selecione o Cliente</span>
+                            <div className="relative">
+                                <select
+                                    name="clientId"
+                                    value={formData.clientId}
+                                    onChange={handleInputChange}
+                                    className="form-select w-full rounded-lg border-[#dbdfe6] dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white h-12 px-4 focus:ring-primary focus:border-primary appearance-none"
+                                    required
+                                >
+                                    <option value="" disabled>Selecione um cliente cadastrado...</option>
+                                    {clients.map(client => (
+                                        <option key={client.id} value={client.id}>{client.name.toUpperCase()}</option>
+                                    ))}
+                                </select>
+                                <span className="material-symbols-outlined absolute right-3 top-3 text-[#616f89] pointer-events-none">expand_more</span>
+                            </div>
+                            <p className="text-[10px] text-slate-500 mt-1">
+                                {currentUser.role === 'Admin' ? 'Os clientes são gerenciados na página de Clientes.' : 'Se o cliente não aparecer, peça ao gestor para cadastrá-lo.'}
+                            </p>
                         </label>
                     </div>
 

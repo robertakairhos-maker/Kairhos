@@ -65,7 +65,10 @@ export const Layout: React.FC<LayoutProps> = ({ children, onLogout }) => {
               { path: '/pipeline', icon: 'view_kanban', label: 'Pipeline' },
               { path: '/jobs/new', icon: 'add_circle', label: 'Nova Vaga' },
               { path: '/candidates', icon: 'person_search', label: 'Banco de Talentos' },
-              ...(currentUser.role === 'Admin' ? [{ path: '/users', icon: 'group', label: 'Usuários' }] : [])
+              ...(currentUser.role === 'Admin' ? [
+                { path: '/users', icon: 'group', label: 'Usuários' },
+                { path: '/clients', icon: 'business', label: 'Clientes' }
+              ] : [])
             ].map(link => (
               <Link
                 key={link.path}

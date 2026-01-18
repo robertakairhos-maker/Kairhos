@@ -7,6 +7,7 @@ import { Pipeline } from './pages/Pipeline';
 import { JobDetails } from './pages/JobDetails';
 import { CreateJob } from './pages/CreateJob';
 import { UserManagement } from './pages/UserManagement';
+import { ClientManagement } from './pages/ClientManagement';
 import { CandidatesPool } from './pages/CandidatesPool';
 import { Settings } from './pages/Settings';
 import { Layout } from './components/Layout';
@@ -115,6 +116,23 @@ const AppContent: React.FC = () => {
             currentUser.role === 'Admin' ? (
               <Layout onLogout={handleLogout}>
                 <UserManagement />
+              </Layout>
+            ) : (
+              <Navigate to="/dashboard" replace />
+            )
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+
+      <Route
+        path="/clients"
+        element={
+          isAuthenticated ? (
+            currentUser.role === 'Admin' ? (
+              <Layout onLogout={handleLogout}>
+                <ClientManagement />
               </Layout>
             ) : (
               <Navigate to="/dashboard" replace />
