@@ -10,34 +10,14 @@ import { UserManagement } from './pages/UserManagement';
 import { CandidatesPool } from './pages/CandidatesPool';
 import { Settings } from './pages/Settings';
 import { Layout } from './components/Layout';
-import { AppProvider } from './context/AppContext';
+import { AppProvider, useApp } from './context/AppContext';
 
 const AppContent: React.FC = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    // Check active session on mount
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setIsAuthenticated(!!session);
-      setLoading(false);
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(!!session);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  const handleLogin = () => {
-    setIsAuthenticated(true);
-  };
+  const { currentUser, loading } = useApp();
+  const isAuthenticated = currentUser.id !== 'guest';
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setIsAuthenticated(false);
   };
 
   if (loading) {
@@ -45,7 +25,7 @@ const AppContent: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center bg-background-light dark:bg-background-dark">
         <div className="flex flex-col items-center gap-4">
           <span className="material-symbols-outlined text-primary text-6xl animate-spin">progress_activity</span>
-          <p className="text-slate-600 dark:text-slate-400 font-medium">Carregando...</p>
+          <p className="text-slate-600 dark:text-slate-400 font-medium">Sincronizando Sessão...</p>
         </div>
       </div>
     );
@@ -57,7 +37,7 @@ const AppContent: React.FC = () => {
         path="/login"
         element={
           !isAuthenticated ? (
-            <Login onLogin={handleLogin} />
+            <Login onLogin={() => { }} />
           ) : (
             <Navigate to="/dashboard" replace />
           )

@@ -27,6 +27,7 @@ interface AppContextType {
     clients: Client[];
     notifications: Notification[];
     currentUser: User;
+    loading: boolean;
     theme: 'light' | 'dark';
     toggleTheme: () => void;
     addJob: (job: Omit<Job, 'id'>) => void;
@@ -50,6 +51,15 @@ interface AppContextType {
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+const GUEST_USER: User = {
+    id: 'guest',
+    name: 'Convidado',
+    email: '',
+    role: 'Junior Recruiter',
+    status: 'Ativo',
+    avatar: ''
+};
 
 // Initial Mock Data
 const INITIAL_USERS: User[] = [
@@ -196,7 +206,9 @@ const INITIAL_CANDIDATES: Candidate[] = [
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [users, setUsers] = useState<User[]>([]);
-    const currentUser = users[0] || { id: 'guest', name: 'Convidado', email: '', role: 'Junior Recruiter', status: 'Ativo', avatar: '' };
+    const [currentUser, setCurrentUser] = useState<User>(GUEST_USER);
+    const [loading, setLoading] = useState(true);
+
     // Theme Management
     const [theme, setTheme] = useState<'light' | 'dark'>(() => {
         const savedTheme = localStorage.getItem('theme');
@@ -218,6 +230,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const [candidates, setCandidates] = useState<Candidate[]>([]);
     const [clients, setClients] = useState<Client[]>([]);
     const [notifications, setNotifications] = useState<Notification[]>([]);
+
+    // Handle Authentication & Identity
+    useEffect(() => {
+        const syncUser = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+
+            if (session?.user) {
+                // Fetch profile to get role and other details
+                const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+
+                if (profile) {
+                    setCurrentUser({
+                        id: profile.id,
+                        name: profile.name,
+                        email: profile.email,
+                        role: profile.user_role as User['role'],
+                        status: profile.status as User['status'],
+                        avatar: profile.avatar_url,
+                        bio: profile.bio,
+                        preferences: profile.preferences
+                    });
+                } else {
+                    // Fallback to metadata if profile not found yet
+                    setCurrentUser({
+                        id: session.user.id,
+                        name: session.user.user_metadata?.name || 'Recrutador',
+                        email: session.user.email || '',
+                        role: (session.user.user_metadata?.role as User['role']) || 'Junior Recruiter',
+                        status: 'Ativo',
+                        avatar: ''
+                    });
+                }
+            } else {
+                setCurrentUser(GUEST_USER);
+            }
+            setLoading(false);
+        };
+
+        syncUser();
+
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+            if (session?.user) {
+                const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+                if (profile) {
+                    setCurrentUser({
+                        id: profile.id,
+                        name: profile.name,
+                        email: profile.email,
+                        role: profile.user_role as User['role'],
+                        status: profile.status as User['status'],
+                        avatar: profile.avatar_url,
+                        bio: profile.bio,
+                        preferences: profile.preferences
+                    });
+                }
+            } else {
+                setCurrentUser(GUEST_USER);
+            }
+        });
+
+        return () => subscription.unsubscribe();
+    }, []);
 
     // Fetch initial data from Supabase
     useEffect(() => {
@@ -354,8 +428,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
 
         fetchData();
-    }, [currentUser?.id, currentUser?.role]);
+    }, [currentUser.id, currentUser.role]);
+
     const addNotification = async (title: string, message: string, type: 'success' | 'warning' | 'info' = 'info') => {
+        if (currentUser.id === 'guest') return;
         const { data, error } = await supabase.from('notifications').insert({
             user_id: currentUser.id,
             title,
@@ -696,6 +772,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             clients,
             notifications,
             currentUser,
+            loading,
             theme,
             toggleTheme,
             addJob,
