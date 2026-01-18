@@ -69,39 +69,58 @@ export const ClientManagement: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (!formData.name.trim()) {
+            setSubmitError('O nome da empresa é obrigatório.');
+            return;
+        }
+
         setSubmitError('');
         setIsSubmitting(true);
 
         try {
             let clientId = editingId;
 
-            if (isEditing && editingId) {
-                await updateClient(editingId, {
-                    name: formData.name
-                });
-            } else {
-                const newId = await addClient({
-                    name: formData.name,
-                    industry: '',
-                    contactName: '',
-                    contactEmail: '',
-                    phone: '',
-                    status: 'Ativo',
-                    contractValue: '',
-                    logo: ''
-                });
-                clientId = newId;
+            // 1. Create or Update Client Record
+            try {
+                if (isEditing && editingId) {
+                    await updateClient(editingId, {
+                        name: formData.name.trim()
+                    });
+                } else {
+                    const newId = await addClient({
+                        name: formData.name.trim(),
+                        industry: '',
+                        contactName: '',
+                        contactEmail: '',
+                        phone: '',
+                        status: 'Ativo',
+                        contractValue: '',
+                        logo: ''
+                    });
+                    if (!newId) throw new Error('Não foi possível obter o ID do novo cliente.');
+                    clientId = newId;
+                }
+            } catch (err: any) {
+                setSubmitError(`Erro ao salvar dados: ${err.message || 'Erro inesperado'}`);
+                return; // Stop flow if record fails
             }
 
-            // Handle Logo Upload if a new file was selected
+            // 2. Handle Logo Upload (Optional)
             if (clientId && logoFile) {
-                await uploadClientLogo(clientId, logoFile);
+                try {
+                    await uploadClientLogo(clientId, logoFile);
+                } catch (logoErr: any) {
+                    console.error('Logo upload error (non-fatal):', logoErr);
+                    // We don't stop the whole process if just the logo fails
+                }
             }
 
+            // 3. Success
             setShowModal(false);
-            setIsSubmitting(false);
         } catch (err: any) {
-            setSubmitError(err.message || 'Erro inesperado ao salvar cliente');
+            console.error('Global submit error:', err);
+            setSubmitError(err.message || 'Ocorreu um erro ao salvar o cliente.');
+        } finally {
             setIsSubmitting(false);
         }
     };
