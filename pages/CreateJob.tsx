@@ -5,7 +5,7 @@ import { Job } from '../types';
 
 export const CreateJob: React.FC = () => {
     const navigate = useNavigate();
-    const { addJob, users } = useApp();
+    const { addJob, users, currentUser } = useApp();
 
     const [formData, setFormData] = useState({
         title: '',
@@ -15,7 +15,7 @@ export const CreateJob: React.FC = () => {
         salaryMin: '',
         salaryMax: '',
         description: '',
-        recruiterId: '',
+        recruiterId: currentUser.role !== 'Admin' ? currentUser.id : '',
         requirements: ''
     });
 
@@ -32,7 +32,7 @@ export const CreateJob: React.FC = () => {
         e.preventDefault();
 
         // Find selected recruiter
-        const recruiter = users.find(u => u.id === formData.recruiterId);
+        const recruiter = users.find(u => u.id === formData.recruiterId) || (currentUser.role !== 'Admin' ? currentUser : null);
         if (!recruiter) {
             alert("Por favor, selecione um recrutador responsável.");
             return;
@@ -116,21 +116,24 @@ export const CreateJob: React.FC = () => {
                     {/* Row 2: Recruiter Selection & Deadline */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <label className="flex flex-col gap-2">
-                            <span className="text-[#111318] dark:text-gray-200 text-sm font-bold">Recrutador Responsável (Vincular Usuário)</span>
+                            <span className="text-[#111318] dark:text-gray-200 text-sm font-bold">
+                                {currentUser.role === 'Admin' ? 'Recrutador Responsável (Vincular Usuário)' : 'Recrutador Responsável'}
+                            </span>
                             <div className="relative">
                                 <select
                                     name="recruiterId"
                                     value={formData.recruiterId}
                                     onChange={handleInputChange}
-                                    className="form-select w-full rounded-lg border-[#dbdfe6] dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white h-12 px-4 focus:ring-primary focus:border-primary appearance-none"
+                                    className={`form-select w-full rounded-lg border-[#dbdfe6] dark:border-gray-700 bg-white dark:bg-gray-800 dark:text-white h-12 px-4 focus:ring-primary focus:border-primary appearance-none ${currentUser.role !== 'Admin' ? 'bg-gray-100 dark:bg-gray-700 cursor-not-allowed' : ''}`}
                                     required
+                                    disabled={currentUser.role !== 'Admin'}
                                 >
                                     <option value="" disabled>Selecione um usuário...</option>
                                     {users.map(user => (
                                         <option key={user.id} value={user.id}>{user.name} - {user.role}</option>
                                     ))}
                                 </select>
-                                <span className="material-symbols-outlined absolute right-3 top-3 text-[#616f89] pointer-events-none">expand_more</span>
+                                {currentUser.role === 'Admin' && <span className="material-symbols-outlined absolute right-3 top-3 text-[#616f89] pointer-events-none">expand_more</span>}
                             </div>
                         </label>
                         <label className="flex flex-col gap-2">

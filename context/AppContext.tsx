@@ -207,8 +207,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             try {
                 // Fetch Profiles
                 const { data: profilesData } = await supabase.from('profiles').select('*');
+                let mappedUsers: User[] = [];
                 if (profilesData) {
-                    setUsers(profilesData.map(p => ({
+                    mappedUsers = profilesData.map(p => ({
                         id: p.id,
                         name: p.name,
                         email: p.email,
@@ -217,7 +218,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         avatar: p.avatar_url,
                         bio: p.bio,
                         preferences: p.preferences
-                    })));
+                    }));
+                    setUsers(mappedUsers);
                 }
 
                 // Fetch Clients
@@ -236,28 +238,58 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     })));
                 }
 
-                // Fetch Jobs
-                const { data: jobsData } = await supabase.from('jobs').select('*');
-                if (jobsData) {
-                    setJobs(jobsData.map(j => ({
-                        id: j.id,
-                        title: j.title,
-                        company: j.company_name,
-                        stage: j.job_stage as Job['stage'],
-                        priority: j.priority as Job['priority'],
-                        tag: j.tag_label ? { label: j.tag_label, color: j.tag_color } : undefined,
-                        progress: j.progress,
-                        daysRemaining: j.days_remaining,
-                        recruiter: { id: j.recruiter_id, name: '', avatar: '' }, // Placeholder, will be linked if needed
-                        salaryMin: j.salary_min,
-                        salaryMax: j.salary_max,
-                        description: j.description,
-                        requirements: j.requirements
-                    })));
+                // Fetch Jobs - Filtered by role
+                let jobsQuery = supabase.from('jobs').select('*');
+
+                // If not admin, only see assigned jobs
+                if (currentUser && currentUser.role !== 'Admin') {
+                    jobsQuery = jobsQuery.eq('recruiter_id', currentUser.id);
                 }
 
-                // Fetch Candidates
-                const { data: candidatesData } = await supabase.from('candidates').select('*');
+                const { data: jobsData } = await jobsQuery;
+                let mappedJobs: Job[] = [];
+                if (jobsData) {
+                    mappedJobs = jobsData.map(j => {
+                        // Find recruiter details from users list
+                        const recruiterInfo = mappedUsers.find(u => u.id === j.recruiter_id);
+                        return {
+                            id: j.id,
+                            title: j.title,
+                            company: j.company_name,
+                            stage: j.job_stage as Job['stage'],
+                            priority: j.priority as Job['priority'],
+                            tag: j.tag_label ? { label: j.tag_label, color: j.tag_color } : undefined,
+                            progress: j.progress,
+                            daysRemaining: j.days_remaining,
+                            recruiter: {
+                                id: j.recruiter_id,
+                                name: recruiterInfo?.name || 'Recrutador Externo',
+                                avatar: recruiterInfo?.avatar || ''
+                            },
+                            salaryMin: j.salary_min,
+                            salaryMax: j.salary_max,
+                            description: j.description,
+                            requirements: j.requirements
+                        };
+                    });
+                    setJobs(mappedJobs);
+                }
+
+                // Fetch Candidates - Only for visible jobs
+                const visibleJobIds = mappedJobs.map(j => j.id);
+                let candidatesQuery = supabase.from('candidates').select('*');
+
+                if (currentUser && currentUser.role !== 'Admin') {
+                    if (visibleJobIds.length > 0) {
+                        candidatesQuery = candidatesQuery.in('job_id', visibleJobIds);
+                    } else {
+                        // If no jobs are visible, no candidates should be visible
+                        setCandidates([]);
+                        return;
+                    }
+                }
+
+                const { data: candidatesData } = await candidatesQuery;
                 if (candidatesData) {
                     setCandidates(candidatesData.map(c => ({
                         id: c.id,
@@ -285,16 +317,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 }
 
                 // Fetch Notifications
-                const { data: notifData } = await supabase.from('notifications').select('*').eq('user_id', currentUser.id);
-                if (notifData) {
-                    setNotifications(notifData.map(n => ({
-                        id: n.id,
-                        title: n.title,
-                        message: n.message,
-                        time: new Date(n.created_at).toLocaleTimeString(),
-                        read: n.is_read,
-                        type: n.notification_type as Notification['type']
-                    })));
+                if (currentUser && currentUser.id !== 'guest') {
+                    const { data: notifData } = await supabase.from('notifications').select('*').eq('user_id', currentUser.id);
+                    if (notifData) {
+                        setNotifications(notifData.map(n => ({
+                            id: n.id,
+                            title: n.title,
+                            message: n.message,
+                            time: new Date(n.created_at).toLocaleTimeString(),
+                            read: n.is_read,
+                            type: n.notification_type as Notification['type']
+                        })));
+                    }
                 }
             } catch (error) {
                 console.error('Error fetching data from Supabase:', error);
@@ -302,7 +336,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         };
 
         fetchData();
-    }, [currentUser?.id]);
+    }, [currentUser?.id, currentUser?.role]);
     const addNotification = async (title: string, message: string, type: 'success' | 'warning' | 'info' = 'info') => {
         const { data, error } = await supabase.from('notifications').insert({
             user_id: currentUser.id,
