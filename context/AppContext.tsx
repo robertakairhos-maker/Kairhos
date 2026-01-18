@@ -263,7 +263,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             });
                             setIsAuthenticated(true);
                         } else {
-                            // Session exists but no profile - force login to avoid "generic recruiter"
+                            // Session exists but no profile - stay at login
                             setCurrentUser(GUEST_USER);
                             setIsAuthenticated(false);
                         }
@@ -299,6 +299,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
             if (session?.user) {
+                // For login, show the transition splash
+                if (mounted && event === 'SIGNED_IN') {
+                    setLoading(true);
+                }
+
                 try {
                     const { data: profile } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
 
@@ -316,14 +321,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             });
                             setIsAuthenticated(true);
                         } else {
-                            // Session exists but no profile - stay at login
+                            // No profile found - stay at login
                             setCurrentUser(GUEST_USER);
                             setIsAuthenticated(false);
                         }
                         setLoading(false);
                     }
                 } catch (err) {
-                    console.error('Auth state refinement error:', err);
+                    console.error('Auth state change error:', err);
                     if (mounted) {
                         setCurrentUser(GUEST_USER);
                         setIsAuthenticated(false);
