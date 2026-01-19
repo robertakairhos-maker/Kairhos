@@ -797,7 +797,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 };
 
                 console.log('[Candidate] Created candidate object:', newCandidate);
-                setCandidates(prev => [...prev, newCandidate]);
+
+                setCandidates(prev => {
+                    const updated = [...prev, newCandidate];
+                    console.log('[Candidate] Previous candidates count:', prev.length);
+                    console.log('[Candidate] Updated candidates count:', updated.length);
+                    console.log('[Candidate] New candidate in array:', updated.find(c => c.id === newCandidate.id));
+                    return updated;
+                });
 
                 // Update Job candidate count local
                 setJobs(prev => prev.map(j => j.id === candidateData.jobId ? { ...j, candidatesCount: (j.candidatesCount || 0) + 1 } : j));
