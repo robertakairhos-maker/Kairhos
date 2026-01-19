@@ -12,6 +12,7 @@ import { CandidatesPool } from './pages/CandidatesPool';
 import { Settings } from './pages/Settings';
 import { Layout } from './components/Layout';
 import { JobTrash } from './pages/JobTrash';
+import { Reports } from './pages/Reports';
 import { AppProvider, useApp } from './context/AppContext';
 
 const AppContent: React.FC = () => {
@@ -167,6 +168,19 @@ const AppContent: React.FC = () => {
           isAuthenticated ? (
             <Layout onLogout={handleLogout}>
               <CandidatesPool />
+            </Layout>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+
+      <Route
+        path="/reports"
+        element={
+          isAuthenticated ? (
+            <Layout onLogout={handleLogout}>
+              <Reports />
             </Layout>
           ) : (
             <Navigate to="/login" replace />
