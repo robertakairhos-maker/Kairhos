@@ -286,6 +286,68 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
                 if (!mounted || lastAuthCallRef.current !== currentCallId) return;
 
+                if (fetchError) {
+                    // PGRST116 is the code for "JSON object requested, but no rows returned"
+                    const isNotFoundError = fetchError.code === 'PGRST116';
+
+                    if (isNotFoundError) {
+                        console.warn('[Auth] Profile missing in DB. Attempting lazy creation...');
+
+                        const newProfile = {
+                            id: session.user.id,
+                            name: session.user.user_metadata?.name || 'Novo Recrutador',
+                            email: session.user.email || '',
+                            user_role: (session.user.user_metadata?.role as User['role']) || 'Junior Recruiter',
+                            status: 'Ativo' as User['status'],
+                            preferences: { notifications: true }
+                        };
+
+                        const { data: createdProfile, error: insertError } = await supabase
+                            .from('profiles')
+                            .insert(newProfile)
+                            .select()
+                            .single();
+
+                        if (insertError) {
+                            console.error('[Auth] Lazy creation failed:', insertError);
+                            // If it's a "duplicate key" error, it means the profile actually exists now 
+                            // (maybe created by another concurrent tab). Try fetching again once.
+                            if (insertError.code === '23505') {
+                                console.log('[Auth] Profile already exists (race), retrying fetch...');
+                                return resolveIdentity(session, 'retryFetch');
+                            }
+
+                            if (!authRef.current) {
+                                setCurrentUser(GUEST_USER);
+                                setIsAuthenticated(false);
+                            }
+                        } else if (createdProfile) {
+                            console.log('[Auth] Profile created successfully.');
+                            setCurrentUser({
+                                id: createdProfile.id,
+                                name: createdProfile.name,
+                                email: createdProfile.email,
+                                role: createdProfile.user_role as User['role'],
+                                status: createdProfile.status as User['status'],
+                                avatar: createdProfile.avatar_url,
+                                bio: createdProfile.bio,
+                                preferences: createdProfile.preferences
+                            });
+                            setIsAuthenticated(true);
+                        }
+                    } else {
+                        console.error('[Auth] Persistent fetch error:', fetchError);
+                        // If we have a session but a transient error occurred, 
+                        // don't kick them out. Just stay in loading or keep previous state.
+                        if (!authRef.current) {
+                            // Only set as guest if it's the first time and we couldn't get a profile
+                            // But maybe it's better to just keep loading if it's a network error?
+                            // Let's be safe and only reset if it's definitively not authenticated.
+                        }
+                    }
+                    return;
+                }
+
                 if (profile) {
                     console.log('[Auth] Profile found, updating state.');
                     setCurrentUser({
@@ -299,46 +361,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         preferences: profile.preferences
                     });
                     setIsAuthenticated(true);
-                } else {
-                    console.warn('[Auth] Profile missing in DB. Attempting lazy creation...');
-
-                    const newProfile = {
-                        id: session.user.id,
-                        name: session.user.user_metadata?.name || 'Novo Recrutador',
-                        email: session.user.email || '',
-                        user_role: (session.user.user_metadata?.role as User['role']) || 'Junior Recruiter',
-                        status: 'Ativo' as User['status'],
-                        preferences: { notifications: true }
-                    };
-
-                    const { data: createdProfile, error: insertError } = await supabase
-                        .from('profiles')
-                        .insert(newProfile)
-                        .select()
-                        .single();
-
-                    if (insertError) {
-                        console.error('[Auth] Lazy creation failed:', insertError);
-                        // Stability: If we have a session but profile creation fails, 
-                        // don't immediately kick them out if they were already in.
-                        if (!authRef.current) {
-                            setCurrentUser(GUEST_USER);
-                            setIsAuthenticated(false);
-                        }
-                    } else if (createdProfile) {
-                        console.log('[Auth] Profile created successfully.');
-                        setCurrentUser({
-                            id: createdProfile.id,
-                            name: createdProfile.name,
-                            email: createdProfile.email,
-                            role: createdProfile.user_role as User['role'],
-                            status: createdProfile.status as User['status'],
-                            avatar: createdProfile.avatar_url,
-                            bio: createdProfile.bio,
-                            preferences: createdProfile.preferences
-                        });
-                        setIsAuthenticated(true);
-                    }
                 }
             } catch (err) {
                 console.error('[Auth] Identity resolution exception:', err);
