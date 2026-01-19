@@ -253,11 +253,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => {
         let mounted = true;
 
-        const resolveIdentity = async (session: any, source: string) => {
+        const resolveIdentity = async (session: any, source: string, attempt = 1) => {
             const currentCallId = Date.now();
             lastAuthCallRef.current = currentCallId;
 
-            console.log(`[Auth] Resolving identity from ${source}. User: ${session?.user?.email || 'None'}`);
+            console.log(`[Auth] Resolving identity from ${source} (Attempt ${attempt}). User: ${session?.user?.email || 'None'}`);
 
             if (!session?.user) {
                 if (mounted && lastAuthCallRef.current === currentCallId) {
@@ -311,12 +311,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             console.error('[Auth] Lazy creation failed:', insertError);
                             if (insertError.code === '23505') {
                                 console.log('[Auth] Profile already exists (race), retrying fetch...');
-                                return resolveIdentity(session, 'retryFetch');
+                                await new Promise(r => setTimeout(r, 500));
+                                return resolveIdentity(session, 'retryrace', attempt + 1);
                             }
 
-                            // Se falhou criar perfil, não autenticar
+                            // Se falhou criar perfil, tenta limpar sessão e deslogar para evitar loop
+                            console.error('[Auth] Could not load or create profile. Clearing session.');
                             if (mounted && lastAuthCallRef.current === currentCallId) {
-                                console.error('[Auth] Could not load or create profile, fallback to guest.');
+                                await supabase.auth.signOut();
                                 setCurrentUser(GUEST_USER);
                                 setIsAuthenticated(false);
                             }
@@ -332,12 +334,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                 bio: createdProfile.bio,
                                 preferences: createdProfile.preferences
                             });
-                            setIsAuthenticated(true); // Only set true HERE
+                            setIsAuthenticated(true);
                         }
                     } else {
-                        console.error('[Auth] Persistent fetch error:', fetchError);
-                        // Erro de rede ou outro erro - manter estado anterior ou guest?
-                        // Melhor não dar acesso se não conseguimos confirmar o perfil
+                        console.error(`[Auth] Persistent fetch error (Attempt ${attempt}):`, fetchError);
+
+                        // Retry on transient network errors (up to 3 times)
+                        if (attempt < 3) {
+                            console.log(`[Auth] Retrying profile fetch in 1s...`);
+                            await new Promise(r => setTimeout(r, 1000));
+                            return resolveIdentity(session, 'retryerror', attempt + 1);
+                        }
+
+                        // Se falhou após tentativas, deslogar usuário para não ficar preso
+                        console.error('[Auth] Failed to load profile after retries. Enforcing logout.');
+                        if (mounted && lastAuthCallRef.current === currentCallId) {
+                            await supabase.auth.signOut();
+                            setCurrentUser(GUEST_USER);
+                            setIsAuthenticated(false);
+                        }
                     }
                 } else if (profile) {
                     console.log('[Auth] Profile found, updating state.');
@@ -351,14 +366,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         bio: profile.bio,
                         preferences: profile.preferences
                     });
-                    setIsAuthenticated(true); // Only set true HERE
+                    setIsAuthenticated(true);
                 }
             } catch (err: any) {
                 console.error('[Auth] Identity resolution exception:', err);
                 if (err.name === 'AbortError') return;
 
+                if (attempt < 3) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    return resolveIdentity(session, 'retryexception', attempt + 1);
+                }
+
                 if (mounted && lastAuthCallRef.current === currentCallId) {
-                    // Não forçar logout em erro transiente, mas garantir que loading pare
+                    setLoading(false);
                 }
             } finally {
                 if (mounted && lastAuthCallRef.current === currentCallId) {
