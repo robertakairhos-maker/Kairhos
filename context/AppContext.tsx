@@ -737,26 +737,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const addCandidate = async (candidateData: Omit<Candidate, 'id' | 'initials' | 'avatarColor' | 'textColor' | 'badgeColor' | 'badgeText' | 'notes'> & { notes?: Note[] }) => {
         try {
             console.log('[Candidate] Adding new candidate:', candidateData);
-            const { data, error } = await supabase.from('candidates').insert({
+
+            const insertData = {
                 job_id: candidateData.jobId,
                 name: candidateData.name,
-                email: candidateData.email,
-                phone: candidateData.phone,
-                candidate_status: candidateData.status,
-                candidate_stage: candidateData.stage,
-                resume_url: candidateData.resumeUrl,
-                resume_name: candidateData.resumeName,
+                email: candidateData.email || '',
+                phone: candidateData.phone || '',
+                candidate_status: candidateData.status || 'Triagem',
+                candidate_stage: candidateData.stage || 'Triagem',
+                resume_url: candidateData.resumeUrl || null,
+                resume_name: candidateData.resumeName || null,
                 skills: candidateData.skills || [],
-                source: candidateData.source,
-                location: candidateData.location,
-                current_job_role: candidateData.currentRole,
-                seniority: candidateData.seniority,
-                notes: candidateData.notes || []
-            }).select().single();
+                source: candidateData.source || 'Manual',
+                location: candidateData.location || '',
+                current_job_role: candidateData.currentRole || '',
+                seniority: candidateData.seniority || 'Pleno',
+                notes: candidateData.notes || [],
+                trashed: false
+            };
 
-            if (error) throw error;
+            console.log('[Candidate] Insert data:', insertData);
+
+            const { data, error } = await supabase.from('candidates').insert(insertData).select().single();
+
+            if (error) {
+                console.error('[Candidate] Database error:', error);
+                throw error;
+            }
 
             if (data) {
+                console.log('[Candidate] Successfully inserted:', data);
                 const initials = data.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
 
                 // Helper for colors based on status (simplified)
@@ -766,14 +776,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (data.candidate_stage === 'Reprovado' || data.candidate_stage === 'Reprovado Gestor') colors = { avatarColor: 'bg-red-100 text-red-600', textColor: 'text-red-700', badgeColor: 'bg-red-100', badgeText: 'Reprovado' };
 
                 const newCandidate: Candidate = {
-                    ...candidateData,
+                    jobId: data.job_id,
+                    name: data.name,
+                    email: data.email,
+                    phone: data.phone,
+                    status: data.candidate_status as Candidate['status'],
+                    stage: data.candidate_stage as Candidate['stage'],
+                    resumeUrl: data.resume_url,
+                    resumeName: data.resume_name,
+                    skills: data.skills,
+                    source: data.source,
+                    location: data.location,
+                    currentRole: data.current_job_role,
+                    seniority: data.seniority as Candidate['seniority'],
                     id: data.id,
                     initials,
                     notes: data.notes || [],
-                    trashed: false,
+                    trashed: data.trashed || false,
                     ...colors
                 };
 
+                console.log('[Candidate] Created candidate object:', newCandidate);
                 setCandidates(prev => [...prev, newCandidate]);
 
                 // Update Job candidate count local
@@ -781,8 +804,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 addNotification('Candidato Adicionado', `${data.name} foi cadastrado com sucesso.`, 'success');
                 return data.id;
             }
+            return null;
         } catch (error: any) {
             console.error('[Candidate] Error adding candidate:', error);
+            console.error('[Candidate] Error details:', {
+                message: error.message,
+                code: error.code,
+                details: error.details,
+                hint: error.hint
+            });
             addNotification('Erro ao salvar candidato', error.message || 'Verifique se a tabela "candidates" existe no Supabase.', 'warning');
             return null;
         }
