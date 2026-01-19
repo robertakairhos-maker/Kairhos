@@ -752,17 +752,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 location: candidateData.location || '',
                 current_job_role: candidateData.currentRole || '',
                 seniority: candidateData.seniority || 'Pleno',
-                notes: candidateData.notes || [],
                 trashed: false
+                // notes removed - stored in separate candidate_notes table
             };
 
             console.log('[Candidate] Insert data:', insertData);
 
             const { data, error } = await supabase.from('candidates').insert(insertData).select().single();
 
+            console.log('[Candidate] Supabase response - data:', data);
+            console.log('[Candidate] Supabase response - error:', error);
+
             if (error) {
                 console.error('[Candidate] Database error:', error);
+                alert(`ERRO DO BANCO DE DADOS:\n\nMensagem: ${error.message}\nCódigo: ${error.code}\nDetalhes: ${error.details}\nHint: ${error.hint}`);
                 throw error;
+            }
+
+            if (!data) {
+                console.error('[Candidate] No data returned from insert!');
+                alert('ERRO: Nenhum dado retornado do banco após inserção. Verifique as políticas RLS ou constraints da tabela.');
+                throw new Error('No data returned from insert');
             }
 
             if (data) {
