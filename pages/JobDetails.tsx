@@ -247,7 +247,8 @@ export const JobDetails: React.FC = () => {
         location: '',
         currentRole: '',
         seniority: 'Pleno' as Candidate['seniority'],
-        skills: ''
+        skills: '',
+        source: 'Manual'
     });
 
     // Note State
@@ -392,7 +393,7 @@ export const JobDetails: React.FC = () => {
         setSelectedCandidate(null);
         setCandidateForm({
             name: '', email: '', phone: '', resumeName: '', resumeUrl: '',
-            location: '', currentRole: '', seniority: 'Pleno', skills: ''
+            location: '', currentRole: '', seniority: 'Pleno', skills: '', source: 'Manual'
         });
         setNewNoteContent('');
         setShowCandidateModal(true);
@@ -410,7 +411,8 @@ export const JobDetails: React.FC = () => {
             location: candidate.location || '',
             currentRole: candidate.currentRole || '',
             seniority: candidate.seniority || 'Pleno',
-            skills: candidate.skills ? candidate.skills.join(', ') : ''
+            skills: candidate.skills ? candidate.skills.join(', ') : '',
+            source: candidate.source || 'Manual'
         });
         setNewNoteContent('');
         setShowCandidateModal(true);
@@ -504,7 +506,8 @@ export const JobDetails: React.FC = () => {
                     location: candidateForm.location,
                     currentRole: candidateForm.currentRole,
                     seniority: candidateForm.seniority,
-                    skills: skillsArray
+                    skills: skillsArray,
+                    source: candidateForm.source || 'Manual'
                 });
             } else {
                 await addCandidate({
@@ -520,7 +523,8 @@ export const JobDetails: React.FC = () => {
                     location: candidateForm.location,
                     currentRole: candidateForm.currentRole,
                     seniority: candidateForm.seniority,
-                    skills: skillsArray
+                    skills: skillsArray,
+                    source: candidateForm.source || 'Manual'
                 });
             }
             setShowCandidateModal(false);
