@@ -253,6 +253,83 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     useEffect(() => {
         let mounted = true;
 
+        // [STRICT AUTH FIX] Simplified identity resolution to prevent loops
+        const resolveIdentityStrict = async (session: any, source: string) => {
+            const currentCallId = Date.now();
+            lastAuthCallRef.current = currentCallId;
+
+            console.log(`[AuthDebug] Resolving identity from ${source}. Session User: ${session?.user?.email || 'None'}`);
+
+            if (!session?.user) {
+                if (mounted && lastAuthCallRef.current === currentCallId) {
+                    console.log('[AuthDebug] No session user found. Setting guest state.');
+                    setCurrentUser(GUEST_USER);
+                    setIsAuthenticated(false);
+                    setLoading(false);
+                }
+                return;
+            }
+
+            try {
+                // If already authenticated with correct user and NO syncUser source (which forces validation), skip.
+                if (authRef.current && currentUserRef.current.id === session.user.id && source !== 'syncUser') {
+                    console.log('[AuthDebug] Already authenticated. Skipping profile fetch.');
+                    if (mounted && lastAuthCallRef.current === currentCallId) setLoading(false);
+                    return;
+                }
+
+                console.log(`[AuthDebug] Fetching profile for ID: ${session.user.id}...`);
+                const { data: profile, error: fetchError } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .eq('id', session.user.id)
+                    .single();
+
+                if (!mounted || lastAuthCallRef.current !== currentCallId) return;
+
+                if (fetchError || !profile) {
+                    console.error('[AuthDebug] Profile fetch failed or missing. Error:', fetchError);
+                    console.warn('[AuthDebug] STRICT FAIL-SAFE: Signing out to prevent login loop.');
+
+                    await supabase.auth.signOut();
+
+                    if (mounted && lastAuthCallRef.current === currentCallId) {
+                        setCurrentUser(GUEST_USER);
+                        setIsAuthenticated(false);
+                        setLoading(false);
+                    }
+                } else {
+                    console.log('[AuthDebug] Profile found. Authenticating user:', profile.email);
+                    setCurrentUser({
+                        id: profile.id,
+                        name: profile.name,
+                        email: profile.email,
+                        role: profile.user_role as User['role'],
+                        status: profile.status as User['status'],
+                        avatar: profile.avatar_url,
+                        bio: profile.bio,
+                        preferences: profile.preferences
+                    });
+                    setIsAuthenticated(true);
+                }
+            } catch (err: any) {
+                console.error('[AuthDebug] Critical Exception in resolveIdentity:', err);
+                console.warn('[AuthDebug] STRICT FAIL-SAFE: Signing out due to exception.');
+
+                await supabase.auth.signOut();
+
+                if (mounted && lastAuthCallRef.current === currentCallId) {
+                    setCurrentUser(GUEST_USER);
+                    setIsAuthenticated(false);
+                    setLoading(false);
+                }
+            } finally {
+                if (mounted && lastAuthCallRef.current === currentCallId) {
+                    setLoading(false);
+                }
+            }
+        };
+
         const resolveIdentity = async (session: any, source: string, attempt = 1) => {
             const currentCallId = Date.now();
             lastAuthCallRef.current = currentCallId;
@@ -420,7 +497,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             try {
                 const { data: { session }, error } = await supabase.auth.getSession();
                 if (error) throw error;
-                await resolveIdentity(session, 'syncUser');
+                await resolveIdentityStrict(session, 'syncUser');
             } catch (err) {
                 console.error('[Auth] Initial sync error:', err);
                 if (mounted) setLoading(false);
@@ -444,7 +521,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 return;
             }
 
-            await resolveIdentity(session, `onAuthStateChange(${event})`);
+            await resolveIdentityStrict(session, `onAuthStateChange(${event})`);
         });
 
         return () => {
