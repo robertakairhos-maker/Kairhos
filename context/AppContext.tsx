@@ -696,74 +696,95 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     const addCandidate = async (candidateData: Omit<Candidate, 'id' | 'initials' | 'avatarColor' | 'textColor' | 'badgeColor' | 'badgeText' | 'notes'> & { notes?: Note[] }) => {
-        const { data, error } = await supabase.from('candidates').insert({
-            job_id: candidateData.jobId,
-            name: candidateData.name,
-            email: candidateData.email,
-            phone: candidateData.phone,
-            candidate_status: candidateData.status,
-            candidate_stage: candidateData.stage,
-            resume_url: candidateData.resumeUrl,
-            resume_name: candidateData.resumeName,
-            skills: candidateData.skills,
-            source: candidateData.source,
-            location: candidateData.location,
-            current_job_role: candidateData.currentRole,
-            seniority: candidateData.seniority,
-            notes: candidateData.notes
-        }).select().single();
+        try {
+            console.log('[Candidate] Adding new candidate:', candidateData);
+            const { data, error } = await supabase.from('candidates').insert({
+                job_id: candidateData.jobId,
+                name: candidateData.name,
+                email: candidateData.email,
+                phone: candidateData.phone,
+                candidate_status: candidateData.status,
+                candidate_stage: candidateData.stage,
+                resume_url: candidateData.resumeUrl,
+                resume_name: candidateData.resumeName,
+                skills: candidateData.skills || [],
+                source: candidateData.source,
+                location: candidateData.location,
+                current_job_role: candidateData.currentRole,
+                seniority: candidateData.seniority,
+                notes: candidateData.notes || []
+            }).select().single();
 
-        if (data && !error) {
-            const initials = data.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
+            if (error) throw error;
 
-            // Helper for colors based on status (simplified)
-            let colors = { avatarColor: 'bg-gray-100 text-gray-600', textColor: 'text-gray-700', badgeColor: 'bg-gray-100', badgeText: data.candidate_status };
-            if (data.candidate_stage === 'Triagem') colors = { avatarColor: 'bg-emerald-100 text-emerald-600', textColor: 'text-gray-700 dark:text-gray-300', badgeColor: 'bg-gray-100 dark:bg-gray-700/50', badgeText: 'Triagem' };
-            if (data.candidate_stage === 'Aprovado') colors = { avatarColor: 'bg-blue-100 text-primary', textColor: 'text-green-700 dark:text-green-400', badgeColor: 'bg-green-100 dark:bg-green-900/30', badgeText: 'Aprovado' };
-            if (data.candidate_stage === 'Reprovado' || data.candidate_stage === 'Reprovado Gestor') colors = { avatarColor: 'bg-red-100 text-red-600', textColor: 'text-red-700', badgeColor: 'bg-red-100', badgeText: 'Reprovado' };
+            if (data) {
+                const initials = data.name.split(' ').map((n: string) => n[0]).join('').substring(0, 2).toUpperCase();
 
-            const newCandidate: Candidate = {
-                ...candidateData,
-                id: data.id,
-                initials,
-                notes: candidateData.notes || [],
-                ...colors
-            };
+                // Helper for colors based on status (simplified)
+                let colors = { avatarColor: 'bg-gray-100 text-gray-600', textColor: 'text-gray-700', badgeColor: 'bg-gray-100', badgeText: data.candidate_status };
+                if (data.candidate_stage === 'Triagem') colors = { avatarColor: 'bg-emerald-100 text-emerald-600', textColor: 'text-gray-700 dark:text-gray-300', badgeColor: 'bg-gray-100 dark:bg-gray-700/50', badgeText: 'Triagem' };
+                if (data.candidate_stage === 'Aprovado') colors = { avatarColor: 'bg-blue-100 text-primary', textColor: 'text-green-700 dark:text-green-400', badgeColor: 'bg-green-100 dark:bg-green-900/30', badgeText: 'Aprovado' };
+                if (data.candidate_stage === 'Reprovado' || data.candidate_stage === 'Reprovado Gestor') colors = { avatarColor: 'bg-red-100 text-red-600', textColor: 'text-red-700', badgeColor: 'bg-red-100', badgeText: 'Reprovado' };
 
-            setCandidates(prev => [...prev, newCandidate]);
+                const newCandidate: Candidate = {
+                    ...candidateData,
+                    id: data.id,
+                    initials,
+                    notes: data.notes || [],
+                    ...colors
+                };
 
-            // Update Job candidate count local
-            setJobs(prev => prev.map(j => j.id === candidateData.jobId ? { ...j, candidatesCount: (j.candidatesCount || 0) + 1 } : j));
+                setCandidates(prev => [...prev, newCandidate]);
+
+                // Update Job candidate count local
+                setJobs(prev => prev.map(j => j.id === candidateData.jobId ? { ...j, candidatesCount: (j.candidatesCount || 0) + 1 } : j));
+                addNotification('Candidato Adicionado', `${data.name} foi cadastrado com sucesso.`, 'success');
+                return data.id;
+            }
+        } catch (error: any) {
+            console.error('[Candidate] Error adding candidate:', error);
+            addNotification('Erro ao salvar candidato', error.message || 'Verifique se a tabela "candidates" existe no Supabase.', 'warning');
+            return null;
         }
     };
 
     const updateCandidateStage = async (candidateId: string, newStage: Candidate['stage']) => {
-        const { error } = await supabase.from('candidates').update({ candidate_stage: newStage }).eq('id', candidateId);
-        if (!error) {
+        try {
+            const { error } = await supabase.from('candidates').update({ candidate_stage: newStage }).eq('id', candidateId);
+            if (error) throw error;
             setCandidates(prev => prev.map(c => c.id === candidateId ? { ...c, stage: newStage } : c));
+        } catch (error: any) {
+            console.error('[Candidate] Error updating stage:', error);
+            addNotification('Erro ao mover candidato', error.message, 'warning');
         }
     };
 
     const updateCandidate = async (candidateId: string, updates: Partial<Candidate>) => {
-        // Map updates to DB columns
-        const dbUpdates: any = {};
-        if (updates.name) dbUpdates.name = updates.name;
-        if (updates.email) dbUpdates.email = updates.email;
-        if (updates.phone) dbUpdates.phone = updates.phone;
-        if (updates.status) dbUpdates.candidate_status = updates.status;
-        if (updates.stage) dbUpdates.candidate_stage = updates.stage;
-        if (updates.resumeUrl) dbUpdates.resume_url = updates.resumeUrl;
-        if (updates.resumeName) dbUpdates.resume_name = updates.resumeName;
-        if (updates.skills) dbUpdates.skills = updates.skills;
-        if (updates.source) dbUpdates.source = updates.source;
-        if (updates.location) dbUpdates.location = updates.location;
-        if (updates.currentRole) dbUpdates.current_job_role = updates.currentRole;
-        if (updates.seniority) dbUpdates.seniority = updates.seniority;
-        if (updates.notes) dbUpdates.notes = updates.notes;
+        try {
+            // Map updates to DB columns
+            const dbUpdates: any = {};
+            if (updates.name !== undefined) dbUpdates.name = updates.name;
+            if (updates.email !== undefined) dbUpdates.email = updates.email;
+            if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
+            if (updates.status !== undefined) dbUpdates.candidate_status = updates.status;
+            if (updates.stage !== undefined) dbUpdates.candidate_stage = updates.stage;
+            if (updates.resumeUrl !== undefined) dbUpdates.resume_url = updates.resumeUrl;
+            if (updates.resumeName !== undefined) dbUpdates.resume_name = updates.resumeName;
+            if (updates.skills !== undefined) dbUpdates.skills = updates.skills;
+            if (updates.source !== undefined) dbUpdates.source = updates.source;
+            if (updates.location !== undefined) dbUpdates.location = updates.location;
+            if (updates.currentRole !== undefined) dbUpdates.current_job_role = updates.currentRole;
+            if (updates.seniority !== undefined) dbUpdates.seniority = updates.seniority;
+            if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
 
-        const { error } = await supabase.from('candidates').update(dbUpdates).eq('id', candidateId);
-        if (!error) {
+            const { error } = await supabase.from('candidates').update(dbUpdates).eq('id', candidateId);
+            if (error) throw error;
+
             setCandidates(prev => prev.map(c => c.id === candidateId ? { ...c, ...updates } : c));
+            addNotification('Candidato Atualizado', 'As informações foram salvas.', 'success');
+        } catch (error: any) {
+            console.error('[Candidate] Error updating candidate:', error);
+            addNotification('Erro ao atualizar candidato', error.message, 'warning');
         }
     };
 

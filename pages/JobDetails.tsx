@@ -471,56 +471,66 @@ export const JobDetails: React.FC = () => {
         }
     };
 
-    const handleCandidateSubmit = (e: React.FormEvent) => {
+    const handleCandidateSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (isUploading) return;
 
-        let notes: Note[] = [];
-        // If adding new candidate with a note
-        if (!isEditing && newNoteContent.trim()) {
-            notes.push({
-                id: Date.now().toString(),
-                content: newNoteContent,
-                authorId: currentUser.id,
-                authorName: currentUser.name,
-                authorAvatar: currentUser.avatar,
-                createdAt: new Date().toISOString()
-            });
-        } else if (isEditing && selectedCandidate && selectedCandidate.notes) {
-            notes = selectedCandidate.notes;
+        try {
+            setIsUploading(true); // Reuse isUploading for general "Submitting" state
+            let notes: Note[] = [];
+            // If adding new candidate with a note
+            if (!isEditing && newNoteContent.trim()) {
+                notes.push({
+                    id: Date.now().toString(),
+                    content: newNoteContent,
+                    authorId: currentUser.id,
+                    authorName: currentUser.name,
+                    authorAvatar: currentUser.avatar,
+                    createdAt: new Date().toISOString()
+                });
+            } else if (isEditing && selectedCandidate && selectedCandidate.notes) {
+                notes = selectedCandidate.notes;
+            }
+
+            const skillsArray = candidateForm.skills.split(',').map(s => s.trim()).filter(s => s.length > 0);
+
+            if (isEditing && selectedCandidate) {
+                await updateCandidate(selectedCandidate.id, {
+                    name: candidateForm.name,
+                    email: candidateForm.email,
+                    phone: candidateForm.phone,
+                    resumeName: candidateForm.resumeName,
+                    resumeUrl: candidateForm.resumeUrl,
+                    location: candidateForm.location,
+                    currentRole: candidateForm.currentRole,
+                    seniority: candidateForm.seniority,
+                    skills: skillsArray
+                });
+            } else {
+                await addCandidate({
+                    jobId: job.id,
+                    name: candidateForm.name,
+                    email: candidateForm.email,
+                    phone: candidateForm.phone,
+                    status: 'Triagem',
+                    stage: 'Triagem',
+                    notes: notes,
+                    resumeName: candidateForm.resumeName,
+                    resumeUrl: candidateForm.resumeUrl,
+                    location: candidateForm.location,
+                    currentRole: candidateForm.currentRole,
+                    seniority: candidateForm.seniority,
+                    skills: skillsArray
+                });
+            }
+            setShowCandidateModal(false);
+            setNewNoteContent('');
+        } catch (err: any) {
+            console.error('Submit error:', err);
+            alert('Falha ao processar o candidato: ' + err.message);
+        } finally {
+            setIsUploading(false);
         }
-
-        const skillsArray = candidateForm.skills.split(',').map(s => s.trim()).filter(s => s.length > 0);
-
-        if (isEditing && selectedCandidate) {
-            updateCandidate(selectedCandidate.id, {
-                name: candidateForm.name,
-                email: candidateForm.email,
-                phone: candidateForm.phone,
-                resumeName: candidateForm.resumeName,
-                resumeUrl: candidateForm.resumeUrl,
-                location: candidateForm.location,
-                currentRole: candidateForm.currentRole,
-                seniority: candidateForm.seniority,
-                skills: skillsArray
-            });
-        } else {
-            addCandidate({
-                jobId: job.id,
-                name: candidateForm.name,
-                email: candidateForm.email,
-                phone: candidateForm.phone,
-                status: 'Triagem',
-                stage: 'Triagem',
-                notes: notes,
-                resumeName: candidateForm.resumeName,
-                resumeUrl: candidateForm.resumeUrl,
-                location: candidateForm.location,
-                currentRole: candidateForm.currentRole,
-                seniority: candidateForm.seniority,
-                skills: skillsArray
-            });
-        }
-        setShowCandidateModal(false);
     };
 
     const handleAddNote = () => {
