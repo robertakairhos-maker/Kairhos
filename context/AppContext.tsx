@@ -269,15 +269,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 return;
             }
 
-            // SPECULATIVE AUTH: Set authenticated true immediately to prevent UI redirection flickering
-            // if we have a valid session object. The profile details will fill in shortly.
-            if (mounted && lastAuthCallRef.current === currentCallId) {
-                setIsAuthenticated(true);
-            }
-
             try {
-                // If we are already authenticated as the correct user with a profile, skip DB fetch
-                if (authRef.current && currentUserRef.current.id === session.user.id && currentUserRef.current.email !== 'guest@kairhos.com' && source !== 'syncUser') {
+                // Se já estamos autenticados com o usuário correto e perfil carregado, pular fetch
+                if (authRef.current && currentUserRef.current.id === session.user.id && currentUserRef.current.email !== '' && source !== 'syncUser') {
                     console.log('[Auth] Already authenticated as current user, skipping profile fetch.');
                     if (mounted && lastAuthCallRef.current === currentCallId) setLoading(false);
                     return;
@@ -293,7 +287,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 if (!mounted || lastAuthCallRef.current !== currentCallId) return;
 
                 if (fetchError) {
-                    // PGRST116 is the code for "JSON object requested, but no rows returned"
                     const isNotFoundError = fetchError.code === 'PGRST116';
 
                     if (isNotFoundError) {
@@ -316,14 +309,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
                         if (insertError) {
                             console.error('[Auth] Lazy creation failed:', insertError);
-                            // If it's a "duplicate key" error, it means the profile actually exists now 
-                            // (maybe created by another concurrent tab). Try fetching again once.
                             if (insertError.code === '23505') {
                                 console.log('[Auth] Profile already exists (race), retrying fetch...');
                                 return resolveIdentity(session, 'retryFetch');
                             }
 
-                            if (!authRef.current) {
+                            // Se falhou criar perfil, não autenticar
+                            if (mounted && lastAuthCallRef.current === currentCallId) {
+                                console.error('[Auth] Could not load or create profile, fallback to guest.');
                                 setCurrentUser(GUEST_USER);
                                 setIsAuthenticated(false);
                             }
@@ -339,22 +332,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                 bio: createdProfile.bio,
                                 preferences: createdProfile.preferences
                             });
-                            setIsAuthenticated(true);
+                            setIsAuthenticated(true); // Only set true HERE
                         }
                     } else {
                         console.error('[Auth] Persistent fetch error:', fetchError);
-                        // If we have a session but a transient error occurred, 
-                        // don't kick them out. Just stay in loading or keep previous state.
-                        if (!authRef.current) {
-                            // Only set as guest if it's the first time and we couldn't get a profile
-                            // But maybe it's better to just keep loading if it's a network error?
-                            // Let's be safe and only reset if it's definitively not authenticated.
-                        }
+                        // Erro de rede ou outro erro - manter estado anterior ou guest?
+                        // Melhor não dar acesso se não conseguimos confirmar o perfil
                     }
-                    return;
-                }
-
-                if (profile) {
+                } else if (profile) {
                     console.log('[Auth] Profile found, updating state.');
                     setCurrentUser({
                         id: profile.id,
@@ -366,25 +351,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         bio: profile.bio,
                         preferences: profile.preferences
                     });
-                    setIsAuthenticated(true);
+                    setIsAuthenticated(true); // Only set true HERE
                 }
             } catch (err: any) {
                 console.error('[Auth] Identity resolution exception:', err);
+                if (err.name === 'AbortError') return;
 
-                // If the error is an AbortError, don't clear loading yet as another call might still be in flight
-                // from a double-mounting useEffect (StrictMode).
-                if (err.name === 'AbortError' || err.message?.includes('aborted')) {
-                    console.warn('[Auth] Fetch aborted, waiting for next call...');
-                    return;
-                }
-
-                if (mounted && lastAuthCallRef.current === currentCallId && !authRef.current) {
-                    setCurrentUser(GUEST_USER);
-                    setIsAuthenticated(false);
+                if (mounted && lastAuthCallRef.current === currentCallId) {
+                    // Não forçar logout em erro transiente, mas garantir que loading pare
                 }
             } finally {
                 if (mounted && lastAuthCallRef.current === currentCallId) {
-                    // Only stop loading if we haven't hit an AbortError (handled above by return)
                     setLoading(false);
                 }
             }
