@@ -315,12 +315,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                                 return resolveIdentity(session, 'retryrace', attempt + 1);
                             }
 
-                            // Se falhou criar perfil, tenta limpar sessão e deslogar para evitar loop
-                            console.error('[Auth] Could not load or create profile. Clearing session.');
+                            // Fallback para metadados da sessão se não conseguir criar perfil
+                            console.warn('[Auth] Creation failed. Using session metadata fallback.');
+                            const fallbackUser: User = {
+                                id: session.user.id,
+                                name: session.user.user_metadata?.name || 'Usuário (Sessão)',
+                                email: session.user.email || '',
+                                role: (session.user.user_metadata?.role as User['role']) || 'Junior Recruiter',
+                                status: 'Ativo',
+                                avatar: session.user.user_metadata?.avatar_url || ''
+                            };
+
                             if (mounted && lastAuthCallRef.current === currentCallId) {
-                                await supabase.auth.signOut();
-                                setCurrentUser(GUEST_USER);
-                                setIsAuthenticated(false);
+                                setCurrentUser(fallbackUser);
+                                setIsAuthenticated(true);
                             }
                         } else if (createdProfile) {
                             console.log('[Auth] Profile created successfully.');
@@ -346,12 +354,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                             return resolveIdentity(session, 'retryerror', attempt + 1);
                         }
 
-                        // Se falhou após tentativas, deslogar usuário para não ficar preso
-                        console.error('[Auth] Failed to load profile after retries. Enforcing logout.');
+                        // Se falhou tudo, usar fallback de sessão
+                        console.warn('[Auth] Failed to load profile DB. Using session metadata fallback.');
+                        const fallbackUser: User = {
+                            id: session.user.id,
+                            name: session.user.user_metadata?.name || 'Usuário (Offline)',
+                            email: session.user.email || '',
+                            role: (session.user.user_metadata?.role as User['role']) || 'Junior Recruiter',
+                            status: 'Ativo',
+                            avatar: session.user.user_metadata?.avatar_url || ''
+                        };
+
                         if (mounted && lastAuthCallRef.current === currentCallId) {
-                            await supabase.auth.signOut();
-                            setCurrentUser(GUEST_USER);
-                            setIsAuthenticated(false);
+                            setCurrentUser(fallbackUser);
+                            setIsAuthenticated(true);
                         }
                     }
                 } else if (profile) {
@@ -377,7 +393,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     return resolveIdentity(session, 'retryexception', attempt + 1);
                 }
 
+                // Final fallback exception
                 if (mounted && lastAuthCallRef.current === currentCallId) {
+                    console.warn('[Auth] Exception limit reached. Using session fallback.');
+                    const fallbackUser: User = {
+                        id: session.user.id,
+                        name: session.user.user_metadata?.name || 'Usuário (Recuperado)',
+                        email: session.user.email || '',
+                        role: (session.user.user_metadata?.role as User['role']) || 'Junior Recruiter',
+                        status: 'Ativo',
+                        avatar: session.user.user_metadata?.avatar_url || ''
+                    };
+                    setCurrentUser(fallbackUser);
+                    setIsAuthenticated(true);
                     setLoading(false);
                 }
             } finally {
