@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../supabase';
 
 interface LoginProps {
@@ -11,6 +11,15 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    // Force clean state when accessing login page to prevent loops
+    useEffect(() => {
+        const cleanSession = async () => {
+            await supabase.auth.signOut();
+            localStorage.clear(); // Optional: clear local storage if needed
+        };
+        cleanSession();
+    }, []);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
