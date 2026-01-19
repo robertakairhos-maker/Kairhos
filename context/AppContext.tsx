@@ -770,6 +770,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     id: data.id,
                     initials,
                     notes: data.notes || [],
+                    trashed: false,
                     ...colors
                 };
 

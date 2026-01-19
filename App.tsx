@@ -9,6 +9,8 @@ import { CreateJob } from './pages/CreateJob';
 import { UserManagement } from './pages/UserManagement';
 import { ClientManagement } from './pages/ClientManagement';
 import { CandidatesPool } from './pages/CandidatesPool';
+import { CandidateBank } from './pages/CandidateBank';
+import { CandidateTrash } from './pages/CandidateTrash';
 import { Settings } from './pages/Settings';
 import { Layout } from './components/Layout';
 import { JobTrash } from './pages/JobTrash';
@@ -181,6 +183,32 @@ const AppContent: React.FC = () => {
           isAuthenticated ? (
             <Layout onLogout={handleLogout}>
               <Reports />
+            </Layout>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+
+      <Route
+        path="/candidate-bank"
+        element={
+          isAuthenticated ? (
+            <Layout onLogout={handleLogout}>
+              <CandidateBank />
+            </Layout>
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
+
+      <Route
+        path="/candidate-trash"
+        element={
+          isAuthenticated ? (
+            <Layout onLogout={handleLogout}>
+              <CandidateTrash />
             </Layout>
           ) : (
             <Navigate to="/login" replace />
