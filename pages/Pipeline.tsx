@@ -42,8 +42,10 @@ export const Pipeline: React.FC = () => {
 
     // --- Computed Data ---
     const filteredJobs = jobs.filter(job =>
-        job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        job.company.toLowerCase().includes(searchTerm.toLowerCase())
+        !job.trashed && (
+            job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            job.company.toLowerCase().includes(searchTerm.toLowerCase())
+        )
     );
 
     const updateJobCount = (stageId: string) => {

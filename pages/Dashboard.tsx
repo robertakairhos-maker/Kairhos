@@ -32,10 +32,10 @@ export const Dashboard: React.FC = () => {
 
     // Group jobs by stage for distribution
     const stageDistribution = {
-        'Vagas Abertas': jobs.filter(j => j.stage === 'Vagas Abertas').length,
-        'Em Triagem': jobs.filter(j => j.stage === 'Em Triagem').length,
-        'Entrevistas': jobs.filter(j => j.stage === 'Primeira Entrevista' || j.stage === 'Entrevista Gestor').length,
-        'Finalizado': jobs.filter(j => j.stage === 'Vaga fechada').length
+        'Vagas Abertas': availableJobs.filter(j => j.stage === 'Vagas Abertas').length,
+        'Em Triagem': availableJobs.filter(j => j.stage === 'Em Triagem').length,
+        'Entrevistas': availableJobs.filter(j => j.stage === 'Primeira Entrevista' || j.stage === 'Entrevista Gestor').length,
+        'Finalizado': availableJobs.filter(j => j.stage === 'Vaga fechada').length
     };
 
     return (
