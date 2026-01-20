@@ -278,15 +278,57 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                     return;
                 }
 
-                console.log(`[AuthDebug] Fetching profile for ID: ${session.user.id}...`);
-                const { data: profile, error: fetchError } = await supabase
+                console.log(`[AuthDebug] Fetching profile for ID: ${session.user.id} with 2s timeout...`);
+
+                // Create a promise that rejects after 2 seconds
+                const timeoutPromise = new Promise((_, reject) => {
+                    setTimeout(() => reject(new Error('DB_TIMEOUT')), 2000);
+                });
+
+                // Race the DB fetch against the timeout
+                const dbFetchPromise = supabase
                     .from('profiles')
                     .select('*')
                     .eq('id', session.user.id)
                     .single();
 
+                let profile = null;
+                let fetchError = null;
+
+                try {
+                    // @ts-ignore
+                    const result = await Promise.race([dbFetchPromise, timeoutPromise]);
+                    // @ts-ignore
+                    profile = result.data;
+                    // @ts-ignore
+                    fetchError = result.error;
+                } catch (timeoutErr: any) {
+                    if (timeoutErr.message === 'DB_TIMEOUT') {
+                        console.warn('[AuthDebug] DB Fetch Timed Out (2s). Using EMERGENCY SESSION FALLBACK.');
+
+                        // EMERGENCY FALLBACK: Construct user from Session (JWT)
+                        // This allows login even if the database is deadlocked/hanging.
+                        const fallbackUser: User = {
+                            id: session.user.id,
+                            name: session.user.user_metadata?.name || 'Usuário (Modo de Segurança)',
+                            email: session.user.email || '',
+                            role: (session.user.user_metadata?.role as User['role']) || 'Junior Recruiter',
+                            status: 'Ativo',
+                            avatar: session.user.user_metadata?.avatar_url || ''
+                        };
+
+                        if (mounted && lastAuthCallRef.current === currentCallId) {
+                            setCurrentUser(fallbackUser);
+                            setIsAuthenticated(true);
+                        }
+                        return; // Successfully handled via fallback
+                    }
+                    throw timeoutErr; // Re-throw other errors
+                }
+
                 if (!mounted || lastAuthCallRef.current !== currentCallId) return;
 
+                // Handle normal DB errors (not timeouts)
                 if (fetchError || !profile) {
                     console.error('[AuthDebug] Profile fetch failed or missing. Error:', fetchError);
                     console.warn('[AuthDebug] STRICT FAIL-SAFE: Signing out to prevent login loop.');
