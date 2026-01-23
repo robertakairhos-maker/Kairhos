@@ -896,8 +896,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 location: candidateData.location || '',
                 current_job_role: candidateData.currentRole || '',
                 seniority: candidateData.seniority || 'Pleno',
-                trashed: false
-                // notes removed - stored in separate candidate_notes table
+                trashed: false,
+                notes: candidateData.notes || []
             };
 
             console.log('[Candidate] Insert data:', insertData);
