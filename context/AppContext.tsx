@@ -1016,6 +1016,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         } catch (error: any) {
             console.error('[Candidate] Error updating candidate:', error);
             addNotification('Erro ao atualizar candidato', error.message, 'warning');
+            throw error;
         }
     };
 

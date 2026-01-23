@@ -537,8 +537,11 @@ export const JobDetails: React.FC = () => {
         }
     };
 
-    const handleAddNote = () => {
+    const handleAddNote = async () => {
         if (selectedCandidate && newNoteContent.trim()) {
+            const previousNotes = selectedCandidate.notes;
+            const contentToRestore = newNoteContent;
+
             const newNote: Note = {
                 id: Date.now().toString(),
                 content: newNoteContent,
@@ -549,12 +552,20 @@ export const JobDetails: React.FC = () => {
             };
 
             const updatedNotes = selectedCandidate.notes ? [...selectedCandidate.notes, newNote] : [newNote];
-            updateCandidate(selectedCandidate.id, { notes: updatedNotes });
 
-            // Update local state to reflect change immediately in modal
+            // Optimistic Update
             setSelectedCandidate({ ...selectedCandidate, notes: updatedNotes });
-
             setNewNoteContent('');
+
+            try {
+                await updateCandidate(selectedCandidate.id, { notes: updatedNotes });
+            } catch (error) {
+                console.error("Failed to save note:", error);
+                alert("Erro ao salvar comentário. Tente novamente ou verifique as permissões (RLS) no Supabase.");
+                // Rollback
+                setSelectedCandidate({ ...selectedCandidate, notes: previousNotes });
+                setNewNoteContent(contentToRestore);
+            }
         }
     };
 
@@ -563,24 +574,44 @@ export const JobDetails: React.FC = () => {
         setEditingNoteContent(note.content);
     };
 
-    const handleSaveEditedNote = () => {
+    const handleSaveEditedNote = async () => {
         if (selectedCandidate && editingNoteId && editingNoteContent.trim()) {
+            const previousNotes = selectedCandidate.notes;
+
             const updatedNotes = selectedCandidate.notes?.map(note =>
                 note.id === editingNoteId ? { ...note, content: editingNoteContent } : note
             ) || [];
 
-            updateCandidate(selectedCandidate.id, { notes: updatedNotes });
+            // Optimistic Update
             setSelectedCandidate({ ...selectedCandidate, notes: updatedNotes });
             setEditingNoteId(null);
             setEditingNoteContent('');
+
+            try {
+                await updateCandidate(selectedCandidate.id, { notes: updatedNotes });
+            } catch (error) {
+                alert("Erro ao editar comentário. Tente novamente.");
+                // Rollback
+                setSelectedCandidate({ ...selectedCandidate, notes: previousNotes });
+                // Restore edit state? optional, but safer to just revert the list view
+            }
         }
     };
 
-    const handleDeleteNote = (noteId: string) => {
+    const handleDeleteNote = async (noteId: string) => {
         if (selectedCandidate && window.confirm('Tem certeza que deseja excluir este comentário?')) {
+            const previousNotes = selectedCandidate.notes;
             const updatedNotes = selectedCandidate.notes?.filter(note => note.id !== noteId) || [];
-            updateCandidate(selectedCandidate.id, { notes: updatedNotes });
+
+            // Optimistic
             setSelectedCandidate({ ...selectedCandidate, notes: updatedNotes });
+
+            try {
+                await updateCandidate(selectedCandidate.id, { notes: updatedNotes });
+            } catch (error) {
+                alert("Erro ao excluir comentário.");
+                setSelectedCandidate({ ...selectedCandidate, notes: previousNotes });
+            }
         }
     };
 
